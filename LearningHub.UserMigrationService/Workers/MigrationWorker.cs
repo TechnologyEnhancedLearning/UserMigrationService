@@ -15,9 +15,11 @@ public class MigrationWorker : BackgroundService
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Migration started.");
+        _logger.LogInformation("***** MIGRATION WORKER STARTED *****");
+
 
         using var scope = _scopeFactory.CreateScope();
 
@@ -26,6 +28,8 @@ public class MigrationWorker : BackgroundService
 
         await pipeline.ExecuteAsync(stoppingToken);
 
-        _logger.LogInformation("Migration completed.");
+        _logger.LogInformation("***** MIGRATION WORKER COMPLETED *****");
+
+        await Task.CompletedTask;
     }
 }

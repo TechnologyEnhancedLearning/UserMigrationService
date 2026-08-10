@@ -1,3 +1,4 @@
+using Azure.Identity;
 using LearningHub.UserMigrationService.Configuration;
 using LearningHub.UserMigrationService.Data;
 using LearningHub.UserMigrationService.Interfaces;
@@ -27,18 +28,16 @@ builder.Configuration
         optional: true,
         reloadOnChange: true)
     .AddEnvironmentVariables();
-
 // ------------------------------------------------------
 // Azure Key Vault
-// Temporarily disabled for local debugging
 // ------------------------------------------------------
 
-// if (!builder.Environment.IsDevelopment())
-// {
-//     builder.Configuration.AddAzureKeyVault(
-//         new Uri(builder.Configuration["KeyVault:VaultUri"]!),
-//         new DefaultAzureCredential());
-// }
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(builder.Configuration["KeyVault:VaultUrl"]!),
+        new DefaultAzureCredential());
+}
 
 // ------------------------------------------------------
 // Database configuration
