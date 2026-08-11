@@ -27,4 +27,11 @@ public interface IMigrationLogger
     Task FailStepAsync(
         Guid migrationStepRunId,
         Exception exception);
+    Task LogAsync(
+        Guid migrationRunId,
+        Guid? migrationStepRunId,
+        string logLevel,
+        string component,
+        string message,
+        Exception? exception = null);
 }

@@ -20,7 +20,10 @@ public class MigrationLogger : IMigrationLogger
             MigrationRunId = Guid.NewGuid(),
             MigrationName = migrationName,
             StartedUtc = DateTime.UtcNow,
-            Status = "Running"
+            CreatedUtc = DateTime.UtcNow,
+            Status = "Running",
+            StartedBy = startedBy,
+            MigrationAppVersion = appVersion
         };
 
         await _repository.InsertMigrationRunAsync(run);
@@ -62,6 +65,7 @@ public class MigrationLogger : IMigrationLogger
             MigrationRunId = migrationRunId,
             StepName = stepName,
             StartedUtc = DateTime.UtcNow,
+            CreatedUtc = DateTime.UtcNow,
             Status = "Running"
         };
 
@@ -97,5 +101,26 @@ public class MigrationLogger : IMigrationLogger
             },
             new MigrationStatistics(),
             exception.Message);
+    }
+    public async Task LogAsync(
+    Guid migrationRunId,
+    Guid? migrationStepRunId,
+    string logLevel,
+    string component,
+    string message,
+    Exception? exception = null)
+    {
+        var log = new MigrationLog
+        {
+            MigrationRunId = migrationRunId,
+            MigrationStepRunId = migrationStepRunId,
+            LogLevel = logLevel,
+            Component = component,
+            Message = message,
+            Exception = exception?.ToString(),
+            CreatedUtc = DateTime.UtcNow
+        };
+
+        await _repository.InsertMigrationLogAsync(log);
     }
 }

@@ -1,49 +1,67 @@
 ﻿using LearningHub.UserMigrationService.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
 
 namespace LearningHub.UserMigrationService.Data;
 
 public class UserMigrationDbContext : DbContext
 {
-    public UserMigrationDbContext(DbContextOptions<UserMigrationDbContext> options)
+    public UserMigrationDbContext(
+        DbContextOptions<UserMigrationDbContext> options)
         : base(options)
     {
     }
 
-    public DbSet<MigrationRun> MigrationRuns => Set<MigrationRun>();
-
-    public DbSet<MigrationStepRun> MigrationStepRuns => Set<MigrationStepRun>();
-
-    public DbSet<MigrationLog> MigrationLogs => Set<MigrationLog>();
+    public DbSet<MigrationRun> MigrationRuns { get; set; }
+    public DbSet<MigrationStepRun> MigrationStepRuns { get; set; }
+    public DbSet<MigrationLog> MigrationLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("migration");
+        base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<MigrationRun>()
-            .HasKey(x => x.MigrationRunId);
+        // MigrationRun
+        modelBuilder.Entity<MigrationRun>(entity =>
+        {
+            entity.ToTable("MigrationRun", "migration");
 
-        modelBuilder.Entity<MigrationStepRun>()
-            .HasKey(x => x.MigrationStepRunId);
+            entity.HasKey(x => x.MigrationRunId);
 
-        modelBuilder.Entity<MigrationLog>()
-            .HasKey(x => x.MigrationLogId);
+            entity.Property(x => x.CreatedUtc)
+                .HasDefaultValueSql("SYSUTCDATETIME()")
+                .ValueGeneratedOnAdd();
+        });
 
-        modelBuilder.Entity<MigrationStepRun>()
-            .HasOne<MigrationRun>()
-            .WithMany()
-            .HasForeignKey(x => x.MigrationRunId);
+        // MigrationStepRun
+        modelBuilder.Entity<MigrationStepRun>(entity =>
+        {
+            entity.ToTable("MigrationStepRun", "migration");
 
-        modelBuilder.Entity<MigrationLog>()
-            .HasOne<MigrationRun>()
-            .WithMany()
-            .HasForeignKey(x => x.MigrationRunId);
+            entity.HasKey(x => x.MigrationStepRunId);
 
-        modelBuilder.Entity<MigrationLog>()
-            .HasOne<MigrationStepRun>()
-            .WithMany()
-            .HasForeignKey(x => x.MigrationStepRunId)
-            .IsRequired(false);
+            entity.Property(x => x.CreatedUtc)
+                .HasDefaultValueSql("SYSUTCDATETIME()")
+                .ValueGeneratedOnAdd();
+        });
+
+        // MigrationLog
+        modelBuilder.Entity<MigrationLog>(entity =>
+        {
+            entity.ToTable("MigrationLog", "migration");
+
+            entity.HasKey(x => x.MigrationLogId);
+
+            entity.HasOne<MigrationRun>()
+                .WithMany()
+                .HasForeignKey(x => x.MigrationRunId);
+
+            entity.HasOne<MigrationStepRun>()
+                .WithMany()
+                .HasForeignKey(x => x.MigrationStepRunId)
+                .IsRequired(false);
+
+            entity.Property(x => x.CreatedUtc)
+            .HasDefaultValueSql("SYSUTCDATETIME()")
+            .ValueGeneratedOnAdd();
+        });
     }
 }

@@ -8,10 +8,8 @@ namespace LearningHub.UserMigrationService.Configuration
 {
     public static class KeyVaultSecrets
     {
-        public const string LegacyDb =
-            "ElfhHubDbConnectionStringTest2";
+        public const string LegacyDb ="ElfhHubDbConnectionStringTest";
 
-        public const string LearningHubDb =
-            "LearningHubDbConnectionStringTest2";
+        public const string LearningHubDb ="LearningHubDbConnectionStringTest";
     }
 }
