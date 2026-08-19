@@ -22,7 +22,7 @@ public class UserMigrationDbContext : DbContext
         // MigrationRun
         modelBuilder.Entity<MigrationRun>(entity =>
         {
-            entity.ToTable("MigrationRun", "migration");
+            entity.ToTable("MigrationRun", "migrations");
 
             entity.HasKey(x => x.MigrationRunId);
 
@@ -34,7 +34,7 @@ public class UserMigrationDbContext : DbContext
         // MigrationStepRun
         modelBuilder.Entity<MigrationStepRun>(entity =>
         {
-            entity.ToTable("MigrationStepRun", "migration");
+            entity.ToTable("MigrationStepRun", "migrations");
 
             entity.HasKey(x => x.MigrationStepRunId);
 
@@ -46,7 +46,7 @@ public class UserMigrationDbContext : DbContext
         // MigrationLog
         modelBuilder.Entity<MigrationLog>(entity =>
         {
-            entity.ToTable("MigrationLog", "migration");
+            entity.ToTable("MigrationLog", "migrations");
 
             entity.HasKey(x => x.MigrationLogId);
 

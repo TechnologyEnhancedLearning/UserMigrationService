@@ -11,9 +11,6 @@ using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine("BEFORE CONFIGURATION");
-
 // ------------------------------------------------------
 // Configuration
 // ------------------------------------------------------
@@ -82,10 +79,6 @@ builder.Services.AddHostedService<MigrationWorker>();
 // Build & Run
 // ------------------------------------------------------
 
-Console.WriteLine("Before Build");
-
 var host = builder.Build();
-
-Console.WriteLine("After Build");
 
 await host.RunAsync();
