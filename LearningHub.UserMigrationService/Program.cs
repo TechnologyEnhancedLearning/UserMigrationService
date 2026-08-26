@@ -72,7 +72,8 @@ builder.Services.AddScoped<ILearningHubRepository, LearningHubRepository>();
 builder.Services.AddScoped<IMigrationLogger, MigrationLogger>();
 
 builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
-
+builder.Services.AddScoped<IUserMigrationSelectionService,UserMigrationSelectionService>();
+builder.Services.AddScoped<IOrganisationMigrationSelectionService,OrganisationMigrationSelectionService>();
 builder.Services.AddHostedService<MigrationWorker>();
 
 // ------------------------------------------------------

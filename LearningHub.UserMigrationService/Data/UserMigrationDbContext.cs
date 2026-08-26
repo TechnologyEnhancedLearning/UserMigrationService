@@ -14,6 +14,8 @@ public class UserMigrationDbContext : DbContext
     public DbSet<MigrationRun> MigrationRuns { get; set; }
     public DbSet<MigrationStepRun> MigrationStepRuns { get; set; }
     public DbSet<MigrationLog> MigrationLogs { get; set; }
+    public DbSet<UserIdToMigrate> UserIdsToMigrate { get; set; }
+    public DbSet<OrganisationLocationIdToMigrate> OrganisationLocationIdsToMigrate{ get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +64,26 @@ public class UserMigrationDbContext : DbContext
             entity.Property(x => x.CreatedUtc)
             .HasDefaultValueSql("SYSUTCDATETIME()")
             .ValueGeneratedOnAdd();
+        });
+        modelBuilder.Entity<UserIdToMigrate>(entity =>
+        {
+            entity.ToTable("UserIdsToMigrate", "migrations");
+
+            entity.HasKey(x => x.UserId);
+
+            entity.Property(x => x.UserId)
+                .ValueGeneratedNever();
+        });
+        modelBuilder.Entity<OrganisationLocationIdToMigrate>(entity =>
+        {
+            entity.ToTable(
+                "OrganisationLocationIdsToMigrate",
+                "migrations");
+
+            entity.HasKey(x => x.LocationId);
+
+            entity.Property(x => x.LocationId)
+                .ValueGeneratedNever();
         });
     }
 }
