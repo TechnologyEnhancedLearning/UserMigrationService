@@ -1,4 +1,6 @@
-﻿using LearningHub.UserMigrationService.Interfaces;
+﻿using LearningHub.UserMigrationService.Configuration;
+using LearningHub.UserMigrationService.Interfaces;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,13 +13,17 @@ namespace LearningHub.UserMigrationService.Services
     {
         private readonly ILegacyRepository _legacyRepository;
         private readonly ILearningHubRepository _learningHubRepository;
+        private readonly MigrationOptions _migrationOptions;
 
         public UserMigrationSelectionService(
             ILegacyRepository legacyRepository,
-            ILearningHubRepository learningHubRepository)
+            ILearningHubRepository learningHubRepository,
+            IOptions<MigrationOptions> migrationOptions)
         {
             _legacyRepository = legacyRepository;
             _learningHubRepository = learningHubRepository;
+            _migrationOptions = migrationOptions.Value;
+
         }
 
         public async Task<int> PopulateUsersToMigrateAsync(
@@ -29,7 +35,7 @@ namespace LearningHub.UserMigrationService.Services
 
             var elfhUsers =
                 await _legacyRepository.GetElfhUsersToMigrateAsync(
-                    24,
+                    _migrationOptions.UserMigrationMonths,
                     cancellationToken);
 
             // Stage 2:

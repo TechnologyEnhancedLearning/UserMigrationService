@@ -43,6 +43,9 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.Configure<DatabaseOptions>(
     builder.Configuration.GetSection("DatabaseOptions"));
 
+builder.Services.Configure<MigrationOptions>(
+    builder.Configuration.GetSection("MigrationOptions"));
+
 builder.Services.AddDbContext<UserMigrationDbContext>((sp, options) =>
 {
     var databaseOptions =
