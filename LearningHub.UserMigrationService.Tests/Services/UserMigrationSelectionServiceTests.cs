@@ -1,5 +1,7 @@
-﻿using LearningHub.UserMigrationService.Interfaces;
+﻿using LearningHub.UserMigrationService.Configuration;
+using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Services;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace LearningHub.UserMigrationService.Tests.Services;
@@ -11,14 +13,19 @@ public class UserMigrationSelectionServiceTests
 
     private readonly UserMigrationSelectionService _service;
 
+
     public UserMigrationSelectionServiceTests()
     {
         _legacyRepository = new Mock<ILegacyRepository>();
         _learningHubRepository = new Mock<ILearningHubRepository>();
-
+        var migrationOptions = Options.Create(new MigrationOptions
+        {
+            UserMigrationMonths = 24
+        });
         _service = new UserMigrationSelectionService(
             _legacyRepository.Object,
-            _learningHubRepository.Object);
+            _learningHubRepository.Object,
+              migrationOptions);
     }
 
     [Fact]
