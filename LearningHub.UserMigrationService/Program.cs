@@ -8,7 +8,8 @@ using LearningHub.UserMigrationService.Services;
 using LearningHub.UserMigrationService.Workers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-
+using LearningHub.UserMigrationService.Interfaces.Extractors;
+using LearningHub.UserMigrationService.Extractors;
 var builder = Host.CreateApplicationBuilder(args);
 
 // ------------------------------------------------------
@@ -77,6 +78,14 @@ builder.Services.AddScoped<IMigrationLogger, MigrationLogger>();
 builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
 builder.Services.AddScoped<IUserMigrationSelectionService,UserMigrationSelectionService>();
 builder.Services.AddScoped<IOrganisationMigrationSelectionService,OrganisationMigrationSelectionService>();
+builder.Services.AddScoped<IUserExtractor, UserExtractor>();
+builder.Services.AddScoped<IUserEmploymentExtractor,UserEmploymentExtractor>();
+builder.Services.AddScoped<IUserAdminLocationExtractor,UserAdminLocationExtractor>();
+builder.Services.AddScoped<IUserGroupReporterExtractor,UserGroupReporterExtractor>();
+builder.Services.AddScoped<IOrganisationExtractor,OrganisationExtractor>();
+builder.Services.AddScoped<IProfessionalBodyExtractor, ProfessionalBodyExtractor>();
+builder.Services.AddScoped<ISupportingLookupExtractor, SupportingLookupExtractor>();
+
 builder.Services.AddHostedService<MigrationWorker>();
 
 // ------------------------------------------------------
