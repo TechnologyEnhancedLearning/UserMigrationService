@@ -1,6 +1,10 @@
 ﻿using LearningHub.UserMigrationService.Interfaces;
+using LearningHub.UserMigrationService.Interfaces.Extractors;
+using LearningHub.UserMigrationService.Interfaces;
+using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
 using LearningHub.UserMigrationService.Services;
+
 
 namespace LearningHub.UserMigrationService.Pipeline;
 
@@ -11,19 +15,31 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IMigrationLogger _migrationLogger;
     private readonly IUserMigrationSelectionService _userMigrationSelectionService;
     private readonly IOrganisationMigrationSelectionService _organisationMigrationSelectionService;
+    private readonly IProfessionalBodyExtractor _professionalBodyExtractor;
+    private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
+    private readonly IProfessionalBodyTransformer _professionalBodyTransformer;
+    private readonly IStagingRepository _stagingRepository;
 
     public MigrationPipeline(
         ILearningHubRepository learningHubRepository,
         ILegacyRepository legacyRepository,
         IMigrationLogger migrationLogger,
         IUserMigrationSelectionService userMigrationSelectionService,
-    IOrganisationMigrationSelectionService organisationMigrationSelectionService)
+        IOrganisationMigrationSelectionService organisationMigrationSelectionService,
+        IProfessionalBodyExtractor professionalBodyExtractor,
+        IProfessionalBodyMappingRepository professionalBodyMappingRepository,
+        IProfessionalBodyTransformer professionalBodyTransformer,
+        IStagingRepository stagingRepository)
     {
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
         _migrationLogger = migrationLogger;
         _userMigrationSelectionService = userMigrationSelectionService;
         _organisationMigrationSelectionService = organisationMigrationSelectionService;
+        _professionalBodyExtractor = professionalBodyExtractor;
+        _professionalBodyMappingRepository = professionalBodyMappingRepository;
+        _professionalBodyTransformer = professionalBodyTransformer;
+        _stagingRepository = stagingRepository;
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -270,7 +286,60 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-            
+
+            // ==================================================
+            // Step 5 - Transform and stage Professional Bodies
+            // ==================================================
+
+            var professionalBodyStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage Professional Bodies");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    professionalBodyStepId,
+                    "Information",
+                    "ProfessionalBodyTransformer",
+                    "Starting Professional Body extraction, transformation and staging.");
+
+                await TransformAndStageProfessionalBodiesAsync(
+                    migrationRunId,
+                    cancellationToken);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    professionalBodyStepId,
+                    "Information",
+                    "ProfessionalBodyTransformer",
+                    "Professional Body extraction, transformation and staging completed.");
+
+                await _migrationLogger.CompleteStepAsync(
+                    professionalBodyStepId,
+                    new MigrationStatistics());
+
+                Console.WriteLine(
+                    "Professional Body transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    professionalBodyStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    professionalBodyStepId,
+                    "Error",
+                    "ProfessionalBodyTransformer",
+                    "Professional Body transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
             // ==================================================
             // Migration completed
             // ==================================================
@@ -306,6 +375,40 @@ public class MigrationPipeline : IMigrationPipeline
                 $"MigrationPipeline failed: {ex.Message}");
 
             throw;
+        }
+    }
+    private async Task TransformAndStageProfessionalBodiesAsync( Guid migrationRunId, CancellationToken cancellationToken)
+    {
+        var professionalBodies =
+            _professionalBodyExtractor
+                .ExtractAsync(cancellationToken);
+
+        var mappings =
+            await _professionalBodyMappingRepository
+                .GetMappingsAsync(cancellationToken);
+
+        var mappingDictionary =
+            mappings.ToDictionary(
+                x => x.LegacyProfessionalBodyId);
+
+        await foreach (
+            var source in professionalBodies
+                .WithCancellation(cancellationToken))
+        {
+            mappingDictionary.TryGetValue(
+                source.ProfessionalBodyId,
+                out var mapping);
+
+            var transformed =
+                _professionalBodyTransformer.Transform(
+                    source,
+                    mapping,
+                    migrationRunId);
+
+            await _stagingRepository
+                .InsertProfessionalBodyAsync(
+                    transformed,
+                    cancellationToken);
         }
     }
 }

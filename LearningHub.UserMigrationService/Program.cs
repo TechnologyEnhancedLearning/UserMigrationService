@@ -1,15 +1,17 @@
 using Azure.Identity;
 using LearningHub.UserMigrationService.Configuration;
 using LearningHub.UserMigrationService.Data;
+using LearningHub.UserMigrationService.Extractors;
 using LearningHub.UserMigrationService.Interfaces;
+using LearningHub.UserMigrationService.Interfaces.Extractors;
+using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Pipeline;
 using LearningHub.UserMigrationService.Repositories;
 using LearningHub.UserMigrationService.Services;
+using LearningHub.UserMigrationService.Transformers;
 using LearningHub.UserMigrationService.Workers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using LearningHub.UserMigrationService.Interfaces.Extractors;
-using LearningHub.UserMigrationService.Extractors;
 var builder = Host.CreateApplicationBuilder(args);
 
 // ------------------------------------------------------
@@ -85,6 +87,11 @@ builder.Services.AddScoped<IUserGroupReporterExtractor,UserGroupReporterExtracto
 builder.Services.AddScoped<IOrganisationExtractor,OrganisationExtractor>();
 builder.Services.AddScoped<IProfessionalBodyExtractor, ProfessionalBodyExtractor>();
 builder.Services.AddScoped<ISupportingLookupExtractor, SupportingLookupExtractor>();
+builder.Services.AddScoped<IProfessionalBodyTransformer,ProfessionalBodyTransformer>();
+builder.Services.AddScoped<IOrganisationTransformer,OrganisationTransformer>();
+builder.Services.AddScoped<IOrganisationTypeTransformer,OrganisationTypeTransformer>();
+builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMappingRepository>();
+builder.Services.AddScoped<IStagingRepository,StagingRepository>();
 
 builder.Services.AddHostedService<MigrationWorker>();
 

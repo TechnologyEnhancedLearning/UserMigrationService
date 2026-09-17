@@ -9,4 +9,6 @@ public class ElfhSupportingLookup
     public string? Name { get; set; }
 
     public string? Description { get; set; }
+    public bool Deleted { get; set; }
+
 }

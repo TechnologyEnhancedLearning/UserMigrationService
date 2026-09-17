@@ -4,6 +4,9 @@ namespace LearningHub.UserMigrationService.Interfaces.Extractors;
 
 public interface ISupportingLookupExtractor
 {
-    IAsyncEnumerable<ElfhSupportingLookup> ExtractAsync(
+    IAsyncEnumerable<ElfhGdcRegister> ExtractGdcAsync(
+        CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ElfhGmcRegister> ExtractGmcAsync(
         CancellationToken cancellationToken = default);
 }

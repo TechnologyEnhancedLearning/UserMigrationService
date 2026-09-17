@@ -22,18 +22,19 @@ public class ProfessionalBodyExtractor : IProfessionalBodyExtractor
         [System.Runtime.CompilerServices.EnumeratorCancellation]
         CancellationToken cancellationToken = default)
     {
-        /*
-         * Replace this query with the actual eLFH
-         * Professional Body source query.
-         */
-
         const string sql = """
             SELECT
-                pb.professionalBodyId,
-                pb.professionalBody
-            FROM dbo.professionalBodyTBL AS pb
+                mc.medicalCouncilId,
+                mc.medicalCouncilName,
+                mc.medicalCouncilCode,
+                mc.uploadPrefix,
+                mc.includeOnCerts,
+                mc.deleted,
+                mc.amendUserID,
+                mc.amendDate
+            FROM dbo.medicalCouncilTBL AS mc
             ORDER BY
-                pb.professionalBodyId;
+                mc.medicalCouncilId;
             """;
 
         await using var connection =
@@ -51,23 +52,69 @@ public class ProfessionalBodyExtractor : IProfessionalBodyExtractor
                 CommandBehavior.SequentialAccess,
                 cancellationToken);
 
-        var idOrdinal =
-            reader.GetOrdinal("professionalBodyId");
+        var medicalCouncilIdOrdinal =
+            reader.GetOrdinal("medicalCouncilId");
 
-        var nameOrdinal =
-            reader.GetOrdinal("professionalBody");
+        var medicalCouncilNameOrdinal =
+            reader.GetOrdinal("medicalCouncilName");
+
+        var medicalCouncilCodeOrdinal =
+            reader.GetOrdinal("medicalCouncilCode");
+
+        var uploadPrefixOrdinal =
+            reader.GetOrdinal("uploadPrefix");
+
+        var includeOnCertsOrdinal =
+            reader.GetOrdinal("includeOnCerts");
+
+        var deletedOrdinal =
+            reader.GetOrdinal("deleted");
+
+        var amendUserIdOrdinal =
+            reader.GetOrdinal("amendUserID");
+
+        var amendDateOrdinal =
+            reader.GetOrdinal("amendDate");
 
         while (await reader.ReadAsync(cancellationToken))
         {
             yield return new ElfhProfessionalBody
             {
                 ProfessionalBodyId =
-                    reader.GetInt32(idOrdinal),
+                    reader.GetInt32(medicalCouncilIdOrdinal),
 
                 ProfessionalBody =
-                    reader.IsDBNull(nameOrdinal)
+                    reader.IsDBNull(medicalCouncilNameOrdinal)
                         ? null
-                        : reader.GetString(nameOrdinal)
+                        : reader.GetString(medicalCouncilNameOrdinal),
+
+                ProfessionalBodyCode =
+                    reader.IsDBNull(medicalCouncilCodeOrdinal)
+                        ? null
+                        : reader.GetString(medicalCouncilCodeOrdinal),
+
+                UploadPrefix =
+                    reader.IsDBNull(uploadPrefixOrdinal)
+                        ? null
+                        : reader.GetString(uploadPrefixOrdinal),
+
+                IncludeOnCerts =
+                    !reader.IsDBNull(includeOnCertsOrdinal) &&
+                    reader.GetBoolean(includeOnCertsOrdinal),
+
+                Deleted =
+                    !reader.IsDBNull(deletedOrdinal) &&
+                    reader.GetBoolean(deletedOrdinal),
+
+                AmendUserId =
+                    reader.IsDBNull(amendUserIdOrdinal)
+                        ? null
+                        : reader.GetInt32(amendUserIdOrdinal),
+
+                AmendDate =
+                    reader.IsDBNull(amendDateOrdinal)
+                        ? null
+                        : reader.GetDateTime(amendDateOrdinal)
             };
         }
     }
