@@ -7,7 +7,9 @@ public static class TransformationValueHelper
         bool defaultValue = false)
     {
         if (value is null || value == DBNull.Value)
+        {
             return defaultValue;
+        }
 
         return value switch
         {
@@ -18,13 +20,15 @@ public static class TransformationValueHelper
             int number => number != 0,
             long number => number != 0,
 
-            string text when
-                bool.TryParse(text, out var result)
-                => result,
+            string text when bool.TryParse(
+                text,
+                out var booleanResult)
+                => booleanResult,
 
-            string text when
-                int.TryParse(text, out var number)
-                => number != 0,
+            string text when int.TryParse(
+                text,
+                out var numberResult)
+                => numberResult != 0,
 
             _ => defaultValue
         };
@@ -33,11 +37,30 @@ public static class TransformationValueHelper
     public static DateTimeOffset? ToUtc(DateTime? value)
     {
         if (!value.HasValue)
+        {
             return null;
+        }
 
         return new DateTimeOffset(
             DateTime.SpecifyKind(
                 value.Value,
                 DateTimeKind.Utc));
+    }
+
+    public static DateTimeOffset? ToUtc(DateTimeOffset? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.ToUniversalTime();
+    }
+
+    public static string? NormalizeString(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 }

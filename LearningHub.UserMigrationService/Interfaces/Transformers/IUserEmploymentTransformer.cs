@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using LearningHub.UserMigrationService.Models.Extraction;
+using LearningHub.UserMigrationService.Models.Transformation;
 
-namespace LearningHub.UserMigrationService.Interfaces.Transformers
+namespace LearningHub.UserMigrationService.Interfaces.Transformers;
+
+public interface IUserEmploymentTransformer
 {
-    internal class IUserEmploymentTransformer
-    {
-    }
+    TransformedUserEmployment Transform(ElfhUserEmployment source,Guid migrationRunId);
 }

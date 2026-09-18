@@ -8,21 +8,31 @@ public class OrganisationTypeTransformer : IOrganisationTypeTransformer
 {
     public TransformedOrganisationType Transform(ElfhSupportingLookup source,int? organisationTypeId,string? organisationType,bool isMapped,Guid migrationRunId)
     {
+        ArgumentNullException.ThrowIfNull(source);
+
         return new TransformedOrganisationType
         {
             MigrationRunId = migrationRunId,
 
-            LegacyOrganisationTypeId = source.Id,
-            LegacyOrganisationType = source.Name,
+            LegacyOrganisationTypeId =
+                source.Id,
 
-            OrganisationTypeId = organisationTypeId,
-            OrganisationType = organisationType,
+            LegacyOrganisationType =
+                TransformationValueHelper.NormalizeString(
+                    source.Name),
 
-            IsMapped = isMapped,
+            OrganisationTypeId =
+                organisationTypeId,
 
-            // Supporting lookup currently doesn't expose
-            // a deleted flag.
-            IsRemoved = false
+            OrganisationType =
+                TransformationValueHelper.NormalizeString(
+                    organisationType),
+
+            IsMapped =
+                isMapped,
+
+            IsRemoved =
+                source.Deleted
         };
     }
 }

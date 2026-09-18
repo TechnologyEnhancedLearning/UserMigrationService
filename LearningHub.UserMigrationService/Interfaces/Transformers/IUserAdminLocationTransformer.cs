@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using LearningHub.UserMigrationService.Models.Extraction;
+using LearningHub.UserMigrationService.Models.Transformation;
 
-namespace LearningHub.UserMigrationService.Interfaces.Transformers
+namespace LearningHub.UserMigrationService.Interfaces.Transformers;
+
+public interface IUserAdminLocationTransformer
 {
-    internal class IUserAdminLocationTransformer
-    {
-    }
+    TransformedUserAdminLocation Transform( ElfhUserAdminLocation source,Guid migrationRunId);
 }

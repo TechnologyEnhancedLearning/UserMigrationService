@@ -36,7 +36,7 @@ public class OrganisationTransformer : IOrganisationTransformer
             // There is currently no Deleted field
             // extracted from locationTBL, so don't invent
             // removal status.
-            IsRemoved = false
+            IsRemoved = source.Deleted
         };
     }
 

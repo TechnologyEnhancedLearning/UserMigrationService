@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace LearningHub.UserMigrationService.Models.Transformation;
 
-namespace LearningHub.UserMigrationService.Models.Transformation
+public class TransformedUserAdminLocation
 {
-    internal class TransformedUserAdminLocation
-    {
-    }
+    public Guid MigrationRunId { get; set; }
+
+    public int LegacyUserId { get; set; }
+    public int? LegacyAdminLocationId { get; set; }
+
+    public bool IsRemoved { get; set; }
 }

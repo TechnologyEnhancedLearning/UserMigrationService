@@ -1,12 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using LearningHub.UserMigrationService.Interfaces.Transformers;
+using LearningHub.UserMigrationService.Models.Extraction;
+using LearningHub.UserMigrationService.Models.Transformation;
 
-namespace LearningHub.UserMigrationService.Transformers
+namespace LearningHub.UserMigrationService.Transformers;
+
+public class UserAdminLocationTransformer : IUserAdminLocationTransformer
 {
-    internal class UserAdminLocationTransformer
+    public TransformedUserAdminLocation Transform(ElfhUserAdminLocation source,Guid migrationRunId)
     {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return new TransformedUserAdminLocation
+        {
+            MigrationRunId = migrationRunId,
+
+            LegacyUserId = source.UserId,
+            LegacyAdminLocationId = source.AdminLocationId,
+
+            IsRemoved = source.Deleted
+        };
     }
 }

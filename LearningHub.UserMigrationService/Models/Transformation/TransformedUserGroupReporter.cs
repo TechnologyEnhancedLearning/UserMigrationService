@@ -1,12 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace LearningHub.UserMigrationService.Models.Transformation;
 
-namespace LearningHub.UserMigrationService.Models.Transformation
+public class TransformedUserGroupReporter
 {
-    internal class TransformedUserGroupReporter
-    {
-    }
+    public Guid MigrationRunId { get; set; }
+
+    public int LegacyUserGroupReporterId { get; set; }
+
+    public int LegacyUserId { get; set; }
+
+    public int LegacyUserGroupId { get; set; }
+
+    public bool IsRemoved { get; set; }
+
+    public int? LegacyAmendUserId { get; set; }
+
+    public DateTimeOffset? UpdatedUtc { get; set; }
 }

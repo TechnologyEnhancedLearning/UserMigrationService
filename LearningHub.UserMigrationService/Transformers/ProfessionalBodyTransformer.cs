@@ -11,39 +11,42 @@ public class ProfessionalBodyTransformer : IProfessionalBodyTransformer
         ProfessionalBodyMapping? mapping,
         Guid migrationRunId)
     {
+        ArgumentNullException.ThrowIfNull(source);
+
         return new TransformedProfessionalBody
         {
             MigrationRunId = migrationRunId,
 
-            // Legacy values
             LegacyProfessionalBodyId = source.ProfessionalBodyId,
-            LegacyProfessionalBody = source.ProfessionalBody,
-            LegacyProfessionalBodyCode = source.ProfessionalBodyCode,
-            UploadPrefix = source.UploadPrefix,
+            LegacyProfessionalBody =TransformationValueHelper.NormalizeString(source.ProfessionalBody),
+            LegacyProfessionalBodyCode =TransformationValueHelper.NormalizeString(source.ProfessionalBodyCode),
 
-            IncludeOnCerts = source.IncludeOnCerts,
+            UploadPrefix =
+                TransformationValueHelper.NormalizeString(
+                    source.UploadPrefix),
 
-            LegacyAmendUserId = source.AmendUserId,
-            LegacyAmendDate = ToUtc(source.AmendDate),
+            IncludeOnCerts =
+                source.IncludeOnCerts,
 
-            // Transformation
-            IsRemoved = source.Deleted,
+            IsRemoved =
+                source.Deleted,
 
-            // Learning Hub mapping
-            ProfessionalBodyId = mapping?.ProfessionalBodyId,
-            ProfessionalBody = mapping?.ProfessionalBody,
-            IsMapped = mapping?.IsMapped ?? false
+            LegacyAmendUserId =
+                source.AmendUserId,
+
+            LegacyAmendDate =
+                TransformationValueHelper.ToUtc(
+                    source.AmendDate),
+
+            ProfessionalBodyId =
+                mapping?.ProfessionalBodyId,
+
+            ProfessionalBody =
+                TransformationValueHelper.NormalizeString(
+                    mapping?.ProfessionalBody),
+
+            IsMapped =
+                mapping?.IsMapped ?? false
         };
-    }
-
-    private static DateTimeOffset? ToUtc(DateTime? value)
-    {
-        if (!value.HasValue)
-            return null;
-
-        return new DateTimeOffset(
-            DateTime.SpecifyKind(
-                value.Value,
-                DateTimeKind.Utc));
     }
 }

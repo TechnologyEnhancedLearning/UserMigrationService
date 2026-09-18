@@ -90,6 +90,10 @@ builder.Services.AddScoped<ISupportingLookupExtractor, SupportingLookupExtractor
 builder.Services.AddScoped<IProfessionalBodyTransformer,ProfessionalBodyTransformer>();
 builder.Services.AddScoped<IOrganisationTransformer,OrganisationTransformer>();
 builder.Services.AddScoped<IOrganisationTypeTransformer,OrganisationTypeTransformer>();
+builder.Services.AddScoped<IUserTransformer, UserTransformer>();
+builder.Services.AddScoped<IUserEmploymentTransformer,UserEmploymentTransformer>();
+builder.Services.AddScoped<IUserAdminLocationTransformer,UserAdminLocationTransformer>();
+builder.Services.AddScoped<IUserGroupReporterTransformer,UserGroupReporterTransformer>();
 builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMappingRepository>();
 builder.Services.AddScoped<IStagingRepository,StagingRepository>();
 
