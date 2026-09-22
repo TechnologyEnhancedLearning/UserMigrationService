@@ -30,13 +30,13 @@ public class MigrationRun
 
     public int FailedSteps { get; set; }
 
-    public int TotalRecordsRead { get; set; }
+    public long TotalRecordsRead { get; set; }
 
-    public int TotalRecordsWritten { get; set; }
+    public long TotalRecordsWritten { get; set; }
 
-    public int TotalRecordsSkipped { get; set; }
+    public long TotalRecordsSkipped { get; set; }
 
-    public int TotalRecordsFailed { get; set; }
+    public long TotalRecordsFailed { get; set; }
 
     public string? ErrorMessage { get; set; }
 

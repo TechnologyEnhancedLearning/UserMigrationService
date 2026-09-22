@@ -16,13 +16,13 @@ public class MigrationStepRun
 
     public long? DurationMs { get; set; }
 
-    public int RecordsRead { get; set; }
+    public long RecordsRead { get; set; }
 
-    public int RecordsWritten { get; set; }
+    public long RecordsWritten { get; set; }
 
-    public int RecordsSkipped { get; set; }
+    public long RecordsSkipped { get; set; }
 
-    public int RecordsFailed { get; set; }
+    public long RecordsFailed { get; set; }
 
     public string? ErrorMessage { get; set; }
 

@@ -2,6 +2,13 @@
 
 public static class TransformationValueHelper
 {
+    public static string? NormalizeString(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+    }
+
     public static bool ToBoolean(
         object? value,
         bool defaultValue = false)
@@ -15,20 +22,25 @@ public static class TransformationValueHelper
         {
             bool boolean => boolean,
 
-            byte number => number != 0,
-            short number => number != 0,
-            int number => number != 0,
-            long number => number != 0,
+            byte number =>
+                number != 0,
 
-            string text when bool.TryParse(
-                text,
-                out var booleanResult)
-                => booleanResult,
+            short number =>
+                number != 0,
 
-            string text when int.TryParse(
-                text,
-                out var numberResult)
-                => numberResult != 0,
+            int number =>
+                number != 0,
+
+            long number =>
+                number != 0,
+
+            string text when
+                bool.TryParse(text, out var result) =>
+                result,
+
+            string text when
+                int.TryParse(text, out var number) =>
+                number != 0,
 
             _ => defaultValue
         };
@@ -47,20 +59,9 @@ public static class TransformationValueHelper
                 DateTimeKind.Utc));
     }
 
-    public static DateTimeOffset? ToUtc(DateTimeOffset? value)
+    public static DateTimeOffset? ToUtc(
+        DateTimeOffset? value)
     {
-        if (!value.HasValue)
-        {
-            return null;
-        }
-
-        return value.Value.ToUniversalTime();
-    }
-
-    public static string? NormalizeString(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
+        return value?.ToUniversalTime();
     }
 }

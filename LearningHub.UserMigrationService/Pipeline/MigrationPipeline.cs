@@ -1,6 +1,5 @@
 ﻿using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Interfaces.Extractors;
-using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
 using LearningHub.UserMigrationService.Services;
@@ -19,6 +18,14 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
     private readonly IProfessionalBodyTransformer _professionalBodyTransformer;
     private readonly IStagingRepository _stagingRepository;
+    private readonly IUserExtractor _userExtractor;
+    private readonly IUserTransformer _userTransformer;
+    private readonly IUserEmploymentExtractor _userEmploymentExtractor;
+    private readonly IUserEmploymentTransformer _userEmploymentTransformer;
+    private readonly IUserAdminLocationExtractor _userAdminLocationExtractor;
+    private readonly IUserAdminLocationTransformer _userAdminLocationTransformer;
+    private readonly IUserGroupReporterExtractor _userGroupReporterExtractor;
+    private readonly IUserGroupReporterTransformer _userGroupReporterTransformer;
 
     public MigrationPipeline(
         ILearningHubRepository learningHubRepository,
@@ -29,7 +36,15 @@ public class MigrationPipeline : IMigrationPipeline
         IProfessionalBodyExtractor professionalBodyExtractor,
         IProfessionalBodyMappingRepository professionalBodyMappingRepository,
         IProfessionalBodyTransformer professionalBodyTransformer,
-        IStagingRepository stagingRepository)
+        IStagingRepository stagingRepository,
+        IUserExtractor userExtractor,
+        IUserTransformer userTransformer,
+        IUserEmploymentExtractor userEmploymentExtractor,
+        IUserEmploymentTransformer userEmploymentTransformer,
+        IUserAdminLocationExtractor userAdminLocationExtractor,
+        IUserAdminLocationTransformer userAdminLocationTransformer,
+        IUserGroupReporterExtractor userGroupReporterExtractor,
+        IUserGroupReporterTransformer userGroupReporterTransformer)
     {
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
@@ -40,6 +55,14 @@ public class MigrationPipeline : IMigrationPipeline
         _professionalBodyMappingRepository = professionalBodyMappingRepository;
         _professionalBodyTransformer = professionalBodyTransformer;
         _stagingRepository = stagingRepository;
+        _userExtractor = userExtractor;
+        _userTransformer = userTransformer;
+        _userEmploymentExtractor = userEmploymentExtractor;
+        _userEmploymentTransformer = userEmploymentTransformer;
+        _userAdminLocationExtractor = userAdminLocationExtractor;
+        _userAdminLocationTransformer = userAdminLocationTransformer;
+        _userGroupReporterExtractor = userGroupReporterExtractor;
+        _userGroupReporterTransformer = userGroupReporterTransformer;
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -220,7 +243,7 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-            
+
             // ==================================================
             // Step 4 - Identify organisations to migrate
             // ==================================================
@@ -305,9 +328,13 @@ public class MigrationPipeline : IMigrationPipeline
                     "ProfessionalBodyTransformer",
                     "Starting Professional Body extraction, transformation and staging.");
 
-                await TransformAndStageProfessionalBodiesAsync(
-                    migrationRunId,
-                    cancellationToken);
+                var professionalBodyStatistics = await TransformAndStageProfessionalBodiesAsync(
+                     migrationRunId,
+                     cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    professionalBodyStepId,
+                    professionalBodyStatistics);
 
                 await _migrationLogger.LogAsync(
                     migrationRunId,
@@ -315,10 +342,6 @@ public class MigrationPipeline : IMigrationPipeline
                     "Information",
                     "ProfessionalBodyTransformer",
                     "Professional Body extraction, transformation and staging completed.");
-
-                await _migrationLogger.CompleteStepAsync(
-                    professionalBodyStepId,
-                    new MigrationStatistics());
 
                 Console.WriteLine(
                     "Professional Body transformation and staging completed.");
@@ -335,6 +358,222 @@ public class MigrationPipeline : IMigrationPipeline
                     "Error",
                     "ProfessionalBodyTransformer",
                     "Professional Body transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+            // ==================================================
+            // Step 6 - Transform and stage Users
+            // ==================================================
+
+            var usersStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage Users");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    usersStepId,
+                    "Information",
+                    "UserTransformer",
+                    "Starting User extraction, transformation and staging.");
+
+                var userStatistics =
+                    await TransformAndStageUsersAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    usersStepId,
+                    userStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    usersStepId,
+                    "Information",
+                    "UserTransformer",
+                    "User extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "User transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    usersStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    usersStepId,
+                    "Error",
+                    "UserTransformer",
+                    "User transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+            // ==================================================
+            // Step 7 - Transform and stage User Employments
+            // ==================================================
+
+            var userEmploymentStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage User Employments");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userEmploymentStepId,
+                    "Information",
+                    "UserEmploymentTransformer",
+                    "Starting User Employment extraction, transformation and staging.");
+
+                var userEmploymentStatistics =
+                    await TransformAndStageUserEmploymentAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    userEmploymentStepId,
+                    userEmploymentStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userEmploymentStepId,
+                    "Information",
+                    "UserEmploymentTransformer",
+                    "User Employment extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "User Employment transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userEmploymentStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userEmploymentStepId,
+                    "Error",
+                    "UserEmploymentTransformer",
+                    "User Employment transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+            // ==================================================
+            // Step 8 - Transform and stage User Admin Locations
+            // ==================================================
+
+            var userAdminLocationStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage User Admin Locations");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAdminLocationStepId,
+                    "Information",
+                    "UserAdminLocationTransformer",
+                    "Starting User Admin Location extraction, transformation and staging.");
+
+                var userAdminLocationStatistics =
+                    await TransformAndStageUserAdminLocationsAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    userAdminLocationStepId,
+                    userAdminLocationStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAdminLocationStepId,
+                    "Information",
+                    "UserAdminLocationTransformer",
+                    "User Admin Location extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "User Admin Location transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userAdminLocationStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAdminLocationStepId,
+                    "Error",
+                    "UserAdminLocationTransformer",
+                    "User Admin Location transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+            // ==================================================
+            // Step 9 - Transform and stage User Group Reporters
+            // ==================================================
+
+            var userGroupReporterStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage User Group Reporters");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userGroupReporterStepId,
+                    "Information",
+                    "UserGroupReporterTransformer",
+                    "Starting User Group Reporter extraction, transformation and staging.");
+
+                var userGroupReporterStatistics =
+                    await TransformAndStageUserGroupReportersAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    userGroupReporterStepId,
+                    userGroupReporterStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userGroupReporterStepId,
+                    "Information",
+                    "UserGroupReporterTransformer",
+                    "User Group Reporter extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "User Group Reporter transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userGroupReporterStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userGroupReporterStepId,
+                    "Error",
+                    "UserGroupReporterTransformer",
+                    "User Group Reporter transformation and staging failed.",
                     ex);
 
                 throw;
@@ -377,8 +616,13 @@ public class MigrationPipeline : IMigrationPipeline
             throw;
         }
     }
-    private async Task TransformAndStageProfessionalBodiesAsync( Guid migrationRunId, CancellationToken cancellationToken)
+    private async Task<MigrationStatistics>
+    TransformAndStageProfessionalBodiesAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
+        var statistics = new MigrationStatistics();
+
         var professionalBodies =
             _professionalBodyExtractor
                 .ExtractAsync(cancellationToken);
@@ -395,6 +639,8 @@ public class MigrationPipeline : IMigrationPipeline
             var source in professionalBodies
                 .WithCancellation(cancellationToken))
         {
+            statistics.RecordsRead++;
+
             mappingDictionary.TryGetValue(
                 source.ProfessionalBodyId,
                 out var mapping);
@@ -405,10 +651,230 @@ public class MigrationPipeline : IMigrationPipeline
                     mapping,
                     migrationRunId);
 
+            var validationErrors =
+                TransformationValidator.Validate(
+                    transformed);
+
+            if (validationErrors.Count > 0)
+            {
+                statistics.RecordsFailed++;
+
+                foreach (var error in validationErrors)
+                {
+                    await _migrationLogger.LogAsync(
+                        migrationRunId,
+                        null,
+                        "Warning",
+                        "ProfessionalBodyTransformer",
+                        $"Legacy Professional Body " +
+                        $"{source.ProfessionalBodyId}: {error}");
+                }
+
+                continue;
+            }
+
             await _stagingRepository
                 .InsertProfessionalBodyAsync(
                     transformed,
                     cancellationToken);
+
+            statistics.RecordsWritten++;
         }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageUsersAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        var users =
+            _userExtractor.ExtractAsync(
+                userIds,
+                cancellationToken);
+
+        await foreach (
+            var source in users
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            var transformed =
+                _userTransformer.Transform(
+                    source,
+                    migrationRunId);
+
+            var validationErrors =
+                TransformationValidator.Validate(
+                    transformed);
+
+            if (validationErrors.Count > 0)
+            {
+                statistics.RecordsFailed++;
+
+                foreach (var error in validationErrors)
+                {
+                    await _migrationLogger.LogAsync(
+                        migrationRunId,
+                        null,
+                        "Warning",
+                        "UserTransformer",
+                        $"Legacy User " +
+                        $"{source.UserId}: {error}");
+                }
+
+                continue;
+            }
+
+            await _stagingRepository
+                .InsertUserAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageUserEmploymentAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        var employmentRecords =
+            _userEmploymentExtractor.ExtractAsync(
+                userIds,
+                cancellationToken);
+
+        await foreach (
+            var source in employmentRecords
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            var transformed =
+                _userEmploymentTransformer.Transform(
+                    source,
+                    migrationRunId);
+
+            await _stagingRepository
+                .InsertUserEmploymentAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageUserAdminLocationsAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        var records =
+            _userAdminLocationExtractor.ExtractAsync(
+                userIds,
+                cancellationToken);
+
+        await foreach (
+            var source in records
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            var transformed =
+                _userAdminLocationTransformer.Transform(
+                    source,
+                    migrationRunId);
+
+            await _stagingRepository
+                .InsertUserAdminLocationAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageUserGroupReportersAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        var records =
+            _userGroupReporterExtractor.ExtractAsync(
+                userIds,
+                cancellationToken);
+
+        await foreach (
+            var source in records
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            var transformed =
+                _userGroupReporterTransformer.Transform(
+                    source,
+                    migrationRunId);
+
+            await _stagingRepository
+                .InsertUserGroupReporterAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
     }
 }

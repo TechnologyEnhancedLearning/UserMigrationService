@@ -6,48 +6,62 @@ namespace LearningHub.UserMigrationService.Transformers;
 
 public class OrganisationTransformer : IOrganisationTransformer
 {
-    public TransformedOrganisation Transform(ElfhOrganisation source,string? organisationType,Guid migrationRunId)
+    public TransformedOrganisation Transform(
+        ElfhOrganisation source,
+        string? organisationType,
+        Guid migrationRunId)
     {
+        ArgumentNullException.ThrowIfNull(source);
+
         return new TransformedOrganisation
         {
             MigrationRunId = migrationRunId,
 
             // Legacy identifiers
-            LegacyOrganisationId = source.LocationId,
-            LegacyOrganisationTypeId = source.LocationTypeId,
-            LegacyParentOrganisationId = source.ParentId,
+            LegacyOrganisationId =
+                source.LocationId,
 
-            // Legacy/source values
-            LegacyOrganisationCode = source.LocationCode,
-            LegacyOrganisationName = source.LocationName,
-            LegacyPostCode = source.PostCode,
+            LegacyOrganisationTypeId =
+                source.LocationTypeId,
+
+            LegacyParentOrganisationId =
+                source.ParentId,
+
+            // Legacy values
+            LegacyOrganisationCode =
+                TransformationValueHelper.NormalizeString(
+                    source.LocationCode),
+
+            LegacyOrganisationName =
+                TransformationValueHelper.NormalizeString(
+                    source.LocationName),
+
+            LegacyPostCode =
+                TransformationValueHelper.NormalizeString(
+                    source.PostCode),
 
             // Learning Hub values
-            OrganisationType = organisationType,
+            OrganisationType =
+                TransformationValueHelper.NormalizeString(
+                    organisationType),
 
             // Derived value
-            Region = OrganisationRegionResolver.Resolve(
-                source.PostCode),
+            Region =
+                OrganisationRegionResolver.Resolve(
+                    source.PostCode),
 
             // Audit
-            CreatedUtc = ToUtc(source.Created),
-            UpdatedUtc = ToUtc(source.Updated),
+            CreatedUtc =
+                TransformationValueHelper.ToUtc(
+                    source.Created),
 
-            // There is currently no Deleted field
-            // extracted from locationTBL, so don't invent
-            // removal status.
-            IsRemoved = source.Deleted
+            UpdatedUtc =
+                TransformationValueHelper.ToUtc(
+                    source.Updated),
+
+            // Removal
+            IsRemoved =
+                source.Deleted
         };
-    }
-
-    private static DateTimeOffset? ToUtc(DateTime? value)
-    {
-        if (!value.HasValue)
-            return null;
-
-        return new DateTimeOffset(
-            DateTime.SpecifyKind(
-                value.Value,
-                DateTimeKind.Utc));
     }
 }
