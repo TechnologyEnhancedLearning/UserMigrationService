@@ -371,4 +371,64 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
             };
         }
     }
+    public async IAsyncEnumerable<ElfhSupportingLookup>
+    ExtractOrganisationTypesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation]
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+        SELECT
+            locationTypeID,
+            locationType
+        FROM dbo.locationTypeTBL
+        ORDER BY
+            locationTypeID;
+        """;
+
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            new SqlCommand(sql, connection)
+            {
+                CommandTimeout = 0
+            };
+
+        await using var reader =
+            await command.ExecuteReaderAsync(
+                CommandBehavior.SequentialAccess,
+                cancellationToken);
+
+        var idOrdinal =
+            reader.GetOrdinal("locationTypeID");
+
+        var nameOrdinal =
+            reader.GetOrdinal("locationType");
+
+        while (await reader.ReadAsync(
+            cancellationToken))
+        {
+            yield return new ElfhSupportingLookup
+            {
+                LookupType = "OrganisationType",
+
+                Id =
+                    reader.GetInt32(idOrdinal),
+
+                Name =
+                    reader.IsDBNull(nameOrdinal)
+                        ? null
+                        : reader.GetString(nameOrdinal),
+
+                Description = null,
+
+                // The supplied locationTypeTBL query
+                // does not contain a deleted column.
+                Deleted = false
+            };
+        }
+    }
 }

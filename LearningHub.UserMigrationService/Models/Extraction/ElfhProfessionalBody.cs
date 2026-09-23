@@ -16,5 +16,5 @@ public class ElfhProfessionalBody
 
     public int? AmendUserId { get; set; }
 
-    public DateTime? AmendDate { get; set; }
+    public DateTimeOffset? AmendDate { get; set; }
 }

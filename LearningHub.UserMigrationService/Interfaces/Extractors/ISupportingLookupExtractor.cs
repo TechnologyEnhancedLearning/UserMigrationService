@@ -9,4 +9,8 @@ public interface ISupportingLookupExtractor
 
     IAsyncEnumerable<ElfhGmcRegister> ExtractGmcAsync(
         CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ElfhSupportingLookup>
+        ExtractOrganisationTypesAsync(
+            CancellationToken cancellationToken = default);
 }

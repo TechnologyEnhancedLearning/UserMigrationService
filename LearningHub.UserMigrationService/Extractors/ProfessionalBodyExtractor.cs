@@ -114,7 +114,7 @@ public class ProfessionalBodyExtractor : IProfessionalBodyExtractor
                 AmendDate =
                     reader.IsDBNull(amendDateOrdinal)
                         ? null
-                        : reader.GetDateTime(amendDateOrdinal)
+                        : reader.GetFieldValue<DateTimeOffset>(amendDateOrdinal)
             };
         }
     }

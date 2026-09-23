@@ -5,5 +5,5 @@ namespace LearningHub.UserMigrationService.Interfaces.Transformers;
 
 public interface IOrganisationTransformer
 {
-    TransformedOrganisation Transform(ElfhOrganisation source,string? organisationType,Guid migrationRunId);
+    TransformedOrganisation Transform(ElfhOrganisation source,OrganisationTypeMapping? organisationTypeMapping,Guid migrationRunId);
 }

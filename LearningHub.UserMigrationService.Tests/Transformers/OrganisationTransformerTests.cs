@@ -1,4 +1,5 @@
 ﻿using LearningHub.UserMigrationService.Models.Extraction;
+using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Transformers;
 
 namespace LearningHub.UserMigrationService.Tests.Transformers;
@@ -18,13 +19,22 @@ public class OrganisationTransformerTests
             PostCode = "OX1 1AA"
         };
 
+        var mapping = new OrganisationTypeMapping
+        {
+            LegacyOrganisationTypeId = 5,
+            LegacyOrganisationType = "Legacy Hospital",
+            OrganisationTypeId = 25,
+            OrganisationType = "NHS Trust",
+            IsMapped = true
+        };
+
         var transformer =
             new OrganisationTransformer();
 
         var result =
             transformer.Transform(
                 source,
-                "Hospital",
+                mapping,
                 Guid.NewGuid());
 
         Assert.Equal(
@@ -38,6 +48,43 @@ public class OrganisationTransformerTests
         Assert.Equal(
             20,
             result.LegacyParentOrganisationId);
+    }
+
+    [Fact]
+    public void Transform_AppliesOrganisationTypeMapping()
+    {
+        var source = new ElfhOrganisation
+        {
+            LocationId = 100,
+            LocationTypeId = 5,
+            LocationName = "Test Organisation"
+        };
+
+        var mapping = new OrganisationTypeMapping
+        {
+            LegacyOrganisationTypeId = 5,
+            LegacyOrganisationType = "Legacy Hospital",
+            OrganisationTypeId = 25,
+            OrganisationType = "NHS Trust",
+            IsMapped = true
+        };
+
+        var transformer =
+            new OrganisationTransformer();
+
+        var result =
+            transformer.Transform(
+                source,
+                mapping,
+                Guid.NewGuid());
+
+        Assert.Equal(
+            25,
+            result.OrganisationTypeId);
+
+        Assert.Equal(
+            "NHS Trust",
+            result.OrganisationType);
     }
 
     [Fact]
@@ -150,6 +197,7 @@ public class OrganisationTransformerTests
                 null,
                 Guid.NewGuid());
 
-        Assert.True(result.IsRemoved);
+        Assert.True(
+            result.IsRemoved);
     }
 }

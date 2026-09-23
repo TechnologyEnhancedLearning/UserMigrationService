@@ -239,5 +239,12 @@ namespace LearningHub.UserMigrationService.Repositories
 
             return ids.Count;
         }
+        public async Task<List<int>>GetOrganisationLocationIdsToMigrateAsync(CancellationToken cancellationToken)
+        {
+            return await _context
+                .OrganisationLocationIdsToMigrate
+                .Select(x => x.LocationId)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

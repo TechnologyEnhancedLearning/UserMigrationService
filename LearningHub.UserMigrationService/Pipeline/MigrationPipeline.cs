@@ -2,6 +2,7 @@
 using LearningHub.UserMigrationService.Interfaces.Extractors;
 using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
+using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Services;
 
 
@@ -26,6 +27,11 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IUserAdminLocationTransformer _userAdminLocationTransformer;
     private readonly IUserGroupReporterExtractor _userGroupReporterExtractor;
     private readonly IUserGroupReporterTransformer _userGroupReporterTransformer;
+    private readonly IOrganisationExtractor _organisationExtractor;
+    private readonly ISupportingLookupExtractor _supportingLookupExtractor;
+    private readonly IOrganisationTransformer _organisationTransformer;
+    private readonly IOrganisationTypeTransformer _organisationTypeTransformer;
+    private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
 
     public MigrationPipeline(
         ILearningHubRepository learningHubRepository,
@@ -44,7 +50,12 @@ public class MigrationPipeline : IMigrationPipeline
         IUserAdminLocationExtractor userAdminLocationExtractor,
         IUserAdminLocationTransformer userAdminLocationTransformer,
         IUserGroupReporterExtractor userGroupReporterExtractor,
-        IUserGroupReporterTransformer userGroupReporterTransformer)
+        IUserGroupReporterTransformer userGroupReporterTransformer,
+        IOrganisationExtractor organisationExtractor,
+        ISupportingLookupExtractor supportingLookupExtractor,
+        IOrganisationTransformer organisationTransformer,
+        IOrganisationTypeTransformer organisationTypeTransformer,
+        IOrganisationTypeMappingRepository organisationTypeMappingRepository)
     {
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
@@ -63,6 +74,11 @@ public class MigrationPipeline : IMigrationPipeline
         _userAdminLocationTransformer = userAdminLocationTransformer;
         _userGroupReporterExtractor = userGroupReporterExtractor;
         _userGroupReporterTransformer = userGroupReporterTransformer;
+        _organisationExtractor = organisationExtractor;
+        _supportingLookupExtractor = supportingLookupExtractor;
+        _organisationTransformer = organisationTransformer;
+        _organisationTypeTransformer = organisationTypeTransformer;
+        _organisationTypeMappingRepository = organisationTypeMappingRepository;
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -578,7 +594,112 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
+            // ==================================================
+            // Step 10 - Transform and stage Organisation Types
+            // ==================================================
 
+            var organisationTypeStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage Organisation Types");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationTypeStepId,
+                    "Information",
+                    "OrganisationTypeTransformer",
+                    "Starting Organisation Type extraction, transformation and staging.");
+
+                var organisationTypeStatistics =
+                    await TransformAndStageOrganisationTypesAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    organisationTypeStepId,
+                    organisationTypeStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationTypeStepId,
+                    "Information",
+                    "OrganisationTypeTransformer",
+                    "Organisation Type extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "Organisation Type transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    organisationTypeStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationTypeStepId,
+                    "Error",
+                    "OrganisationTypeTransformer",
+                    "Organisation Type transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+            // ==================================================
+            // Step 11 - Transform and stage Organisations
+            // ==================================================
+
+            var organisationStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage Organisations");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationStepId,
+                    "Information",
+                    "OrganisationTransformer",
+                    "Starting Organisation extraction, transformation and staging.");
+
+                var organisationStatistics =
+                    await TransformAndStageOrganisationsAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    organisationStepId,
+                    organisationStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationStepId,
+                    "Information",
+                    "OrganisationTransformer",
+                    "Organisation extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "Organisation transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    organisationStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    organisationStepId,
+                    "Error",
+                    "OrganisationTransformer",
+                    "Organisation transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
             // ==================================================
             // Migration completed
             // ==================================================
@@ -864,6 +985,168 @@ public class MigrationPipeline : IMigrationPipeline
 
             await _stagingRepository
                 .InsertUserGroupReporterAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageOrganisationTypesAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics =
+            new MigrationStatistics();
+
+        var mappings =
+            await _organisationTypeMappingRepository
+                .GetMappingsAsync(
+                    cancellationToken);
+
+        var mappingDictionary =
+            mappings.ToDictionary(
+                x => x.LegacyOrganisationTypeId);
+
+        var organisationTypes =
+            _supportingLookupExtractor
+                .ExtractOrganisationTypesAsync(
+                    cancellationToken);
+
+        await foreach (
+            var source in organisationTypes
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            mappingDictionary.TryGetValue(
+                source.Id,
+                out var mapping);
+
+            var transformed =
+                _organisationTypeTransformer.Transform(
+                    source,
+                    mapping?.OrganisationTypeId,
+                    mapping?.OrganisationType,
+                    mapping?.IsMapped ?? false,
+                    migrationRunId);
+
+            var validationErrors =
+                TransformationValidator.Validate(
+                    transformed);
+
+            if (validationErrors.Count > 0)
+            {
+                statistics.RecordsFailed++;
+
+                foreach (var error in validationErrors)
+                {
+                    await _migrationLogger.LogAsync(
+                        migrationRunId,
+                        null,
+                        "Warning",
+                        "OrganisationTypeTransformer",
+                        $"Legacy Organisation Type " +
+                        $"{source.Id}: {error}");
+                }
+
+                continue;
+            }
+
+            await _stagingRepository
+                .InsertOrganisationTypeAsync(
+                    transformed,
+                    cancellationToken);
+
+            statistics.RecordsWritten++;
+
+            if (transformed.IsRemoved)
+            {
+                statistics.RecordsRemoved++;
+            }
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageOrganisationsAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics =
+            new MigrationStatistics();
+
+        var locationIds =
+            await _learningHubRepository
+                .GetOrganisationLocationIdsToMigrateAsync(
+                    cancellationToken);
+
+        var mappings =
+            await _organisationTypeMappingRepository
+                .GetMappingsAsync(
+                    cancellationToken);
+
+        var mappingDictionary =
+            mappings.ToDictionary(
+                x => x.LegacyOrganisationTypeId);
+
+        var organisations =
+            _organisationExtractor.ExtractAsync(
+                locationIds,
+                cancellationToken);
+
+        await foreach (
+            var source in organisations
+                .WithCancellation(cancellationToken))
+        {
+            statistics.RecordsRead++;
+
+            OrganisationTypeMapping? mapping = null;
+
+            if (source.LocationTypeId.HasValue)
+            {
+                mappingDictionary.TryGetValue(
+                    source.LocationTypeId.Value,
+                    out mapping);
+            }
+
+            var transformed =
+                _organisationTransformer.Transform(
+                    source,
+                    mapping,
+                    migrationRunId);
+
+            var validationErrors =
+                TransformationValidator.Validate(
+                    transformed);
+
+            if (validationErrors.Count > 0)
+            {
+                statistics.RecordsFailed++;
+
+                foreach (var error in validationErrors)
+                {
+                    await _migrationLogger.LogAsync(
+                        migrationRunId,
+                        null,
+                        "Warning",
+                        "OrganisationTransformer",
+                        $"Legacy Organisation " +
+                        $"{source.LocationId}: {error}");
+                }
+
+                continue;
+            }
+
+            await _stagingRepository
+                .InsertOrganisationAsync(
                     transformed,
                     cancellationToken);
 

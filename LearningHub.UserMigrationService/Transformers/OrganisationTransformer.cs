@@ -4,11 +4,12 @@ using LearningHub.UserMigrationService.Models.Transformation;
 
 namespace LearningHub.UserMigrationService.Transformers;
 
-public class OrganisationTransformer : IOrganisationTransformer
+public class OrganisationTransformer
+    : IOrganisationTransformer
 {
     public TransformedOrganisation Transform(
         ElfhOrganisation source,
-        string? organisationType,
+        OrganisationTypeMapping? organisationTypeMapping,
         Guid migrationRunId)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -40,17 +41,20 @@ public class OrganisationTransformer : IOrganisationTransformer
                 TransformationValueHelper.NormalizeString(
                     source.PostCode),
 
-            // Learning Hub values
+            // Organisation Type mapping
+            OrganisationTypeId =
+                organisationTypeMapping?.OrganisationTypeId,
+
             OrganisationType =
                 TransformationValueHelper.NormalizeString(
-                    organisationType),
+                    organisationTypeMapping?.OrganisationType),
 
-            // Derived value
+            // Derived region
             Region =
                 OrganisationRegionResolver.Resolve(
                     source.PostCode),
 
-            // Audit
+            // Audit fields
             CreatedUtc =
                 TransformationValueHelper.ToUtc(
                     source.Created),
@@ -59,7 +63,7 @@ public class OrganisationTransformer : IOrganisationTransformer
                 TransformationValueHelper.ToUtc(
                     source.Updated),
 
-            // Removal
+            // Removal status
             IsRemoved =
                 source.Deleted
         };

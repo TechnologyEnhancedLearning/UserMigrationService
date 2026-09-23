@@ -95,6 +95,7 @@ builder.Services.AddScoped<IUserEmploymentTransformer,UserEmploymentTransformer>
 builder.Services.AddScoped<IUserAdminLocationTransformer,UserAdminLocationTransformer>();
 builder.Services.AddScoped<IUserGroupReporterTransformer,UserGroupReporterTransformer>();
 builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMappingRepository>();
+builder.Services.AddScoped<IOrganisationTypeMappingRepository,OrganisationTypeMappingRepository>();
 builder.Services.AddScoped<IStagingRepository,StagingRepository>();
 
 builder.Services.AddHostedService<MigrationWorker>();
