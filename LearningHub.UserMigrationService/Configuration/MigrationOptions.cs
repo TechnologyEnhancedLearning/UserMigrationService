@@ -9,6 +9,6 @@ namespace LearningHub.UserMigrationService.Configuration;
 public class MigrationOptions
 {
     public int UserMigrationMonths { get; set; } = 24;
-    public int BatchSize { get; set; } = 5000;
+    public int BatchSize { get; set; } = 1000;
     public bool EnableValidation { get; set; } = true;
 }

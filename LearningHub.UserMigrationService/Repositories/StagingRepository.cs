@@ -1,4 +1,5 @@
-﻿using LearningHub.UserMigrationService.Configuration;
+﻿using System.Data;
+using LearningHub.UserMigrationService.Configuration;
 using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Models.Transformation;
 using Microsoft.Data.SqlClient;
@@ -17,482 +18,352 @@ public class StagingRepository : IStagingRepository
             databaseOptions.Value.LearningHubConnectionString;
     }
 
-    public async Task InsertProfessionalBodyAsync(
-        TransformedProfessionalBody professionalBody,
-        CancellationToken cancellationToken)
+    public async Task InsertUsersAsync(
+        IReadOnlyCollection<TransformedUser> users,
+        CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            INSERT INTO [migrations].[ProfessionalBody]
-            (
-                MigrationRunId,
-                LegacyProfessionalBodyId,
-                LegacyProfessionalBody,
-                LegacyProfessionalBodyCode,
-                UploadPrefix,
-                IncludeOnCerts,
-                IsRemoved,
-                LegacyAmendUserId,
-                LegacyAmendDate,
-                ProfessionalBodyId,
-                ProfessionalBody,
-                IsMapped
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyProfessionalBodyId,
-                @LegacyProfessionalBody,
-                @LegacyProfessionalBodyCode,
-                @UploadPrefix,
-                @IncludeOnCerts,
-                @IsRemoved,
-                @LegacyAmendUserId,
-                @LegacyAmendDate,
-                @ProfessionalBodyId,
-                @ProfessionalBody,
-                @IsMapped
-            );
-            """;
+        if (users.Count == 0)
+            return;
 
-        await using var connection =
-            new SqlConnection(_connectionString);
+        var table = new DataTable();
 
-        await connection.OpenAsync(cancellationToken);
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("FirstName", typeof(string));
+        table.Columns.Add("LastName", typeof(string));
+        table.Columns.Add("EmailAddress", typeof(string));
+        table.Columns.Add("AltEmailAddress", typeof(string));
+        table.Columns.Add("UserName", typeof(string));
+        table.Columns.Add("RegistrationCode", typeof(string));
+        table.Columns.Add("IsActive", typeof(bool));
+        table.Columns.Add("IsRemoved", typeof(bool));
+        table.Columns.Add("PasswordHash", typeof(string));
+        table.Columns.Add("MustChangeNextLogin", typeof(bool));
+        table.Columns.Add("PasswordLifeCounter", typeof(int));
+        table.Columns.Add("RemoteLoginKey", typeof(string));
+        table.Columns.Add("RemoteLoginGuid", typeof(Guid));
+        table.Columns.Add("RemoteLoginStart", typeof(DateTimeOffset));
+        table.Columns.Add("RestrictToSso", typeof(bool));
+        table.Columns.Add("CreatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("LegacyAmendUserId", typeof(int));
 
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
+        foreach (var user in users)
+        {
+            table.Rows.Add(
+                user.MigrationRunId,
+                user.LegacyUserId,
+                DbValue(user.FirstName),
+                DbValue(user.LastName),
+                DbValue(user.EmailAddress),
+                DbValue(user.AltEmailAddress),
+                DbValue(user.UserName),
+                DbValue(user.RegistrationCode),
+                user.IsActive,
+                user.IsRemoved,
+                DbValue(user.PasswordHash),
+                user.MustChangeNextLogin,
+                DbValue(user.PasswordLifeCounter),
+                DbValue(user.RemoteLoginKey),
+                DbValue(user.RemoteLoginGuid),
+                DbValue(user.RemoteLoginStart),
+                user.RestrictToSso,
+                DbValue(user.CreatedUtc),
+                DbValue(user.UpdatedUtc),
+                DbValue(user.LegacyAmendUserId));
+        }
 
-        command.Parameters.Add(
-            new SqlParameter(
-                "@MigrationRunId",
-                professionalBody.MigrationRunId));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@LegacyProfessionalBodyId",
-                professionalBody.LegacyProfessionalBodyId));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@LegacyProfessionalBody",
-                (object?)professionalBody.LegacyProfessionalBody
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@LegacyProfessionalBodyCode",
-                (object?)professionalBody.LegacyProfessionalBodyCode
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@UploadPrefix",
-                (object?)professionalBody.UploadPrefix
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@IncludeOnCerts",
-                professionalBody.IncludeOnCerts));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@IsRemoved",
-                professionalBody.IsRemoved));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@LegacyAmendUserId",
-                (object?)professionalBody.LegacyAmendUserId
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@LegacyAmendDate",
-                (object?)professionalBody.LegacyAmendDate
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@ProfessionalBodyId",
-                (object?)professionalBody.ProfessionalBodyId
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@ProfessionalBody",
-                (object?)professionalBody.ProfessionalBody
-                    ?? DBNull.Value));
-
-        command.Parameters.Add(
-            new SqlParameter(
-                "@IsMapped",
-                professionalBody.IsMapped));
-
-        await command.ExecuteNonQueryAsync(
+        await BulkInsertAsync(
+            table,
+            "[migrations].[User]",
             cancellationToken);
     }
 
-    public async Task InsertUserAsync(
-        TransformedUser user,
+    public async Task InsertUserEmploymentsAsync(
+        IReadOnlyCollection<TransformedUserEmployment> employments,
+        CancellationToken cancellationToken = default)
+    {
+        if (employments.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyUserEmploymentId", typeof(int));
+        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("LegacyLocationId", typeof(int));
+        table.Columns.Add("LegacyJobRoleId", typeof(int));
+        table.Columns.Add("StartDateUtc", typeof(DateTimeOffset));
+        table.Columns.Add("EndDateUtc", typeof(DateTimeOffset));
+        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("LegacyAmendUserId", typeof(int));
+        table.Columns.Add("IsRemoved", typeof(bool));
+
+        foreach (var employment in employments)
+        {
+            table.Rows.Add(
+                employment.MigrationRunId,
+                employment.LegacyUserEmploymentId,
+                employment.LegacyUserId,
+                DbValue(employment.LegacyLocationId),
+                DbValue(employment.LegacyJobRoleId),
+                DbValue(employment.StartDateUtc),
+                DbValue(employment.EndDateUtc),
+                DbValue(employment.UpdatedUtc),
+                DbValue(employment.LegacyAmendUserId),
+                employment.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserEmployment]",
+            cancellationToken);
+    }
+
+    public async Task InsertUserAdminLocationsAsync(
+        IReadOnlyCollection<TransformedUserAdminLocation> adminLocations,
+        CancellationToken cancellationToken = default)
+    {
+        if (adminLocations.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("LegacyAdminLocationId", typeof(int));
+        table.Columns.Add("IsRemoved", typeof(bool));
+
+        foreach (var record in adminLocations)
+        {
+            table.Rows.Add(
+                record.MigrationRunId,
+                record.LegacyUserId,
+                DbValue(record.LegacyAdminLocationId),
+                record.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserAdminLocation]",
+            cancellationToken);
+    }
+
+    public async Task InsertUserGroupReportersAsync(
+        IReadOnlyCollection<TransformedUserGroupReporter> groupReporters,
+        CancellationToken cancellationToken = default)
+    {
+        if (groupReporters.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyUserGroupReporterId", typeof(int));
+        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("LegacyUserGroupId", typeof(int));
+        table.Columns.Add("IsRemoved", typeof(bool));
+        table.Columns.Add("LegacyAmendUserId", typeof(int));
+        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
+
+        foreach (var record in groupReporters)
+        {
+            table.Rows.Add(
+                record.MigrationRunId,
+                record.LegacyUserGroupReporterId,
+                record.LegacyUserId,
+                record.LegacyUserGroupId,
+                record.IsRemoved,
+                DbValue(record.LegacyAmendUserId),
+                DbValue(record.UpdatedUtc));
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserGroupReporter]",
+            cancellationToken);
+    }
+
+    public async Task InsertOrganisationsAsync(
+        IReadOnlyCollection<TransformedOrganisation> organisations,
+        CancellationToken cancellationToken = default)
+    {
+        if (organisations.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyOrganisationId", typeof(int));
+        table.Columns.Add("LegacyOrganisationTypeId", typeof(int));
+        table.Columns.Add("LegacyParentOrganisationId", typeof(int));
+        table.Columns.Add("LegacyOrganisationCode", typeof(string));
+        table.Columns.Add("LegacyOrganisationName", typeof(string));
+        table.Columns.Add("LegacyPostCode", typeof(string));
+        table.Columns.Add("OrganisationTypeId", typeof(int));
+        table.Columns.Add("OrganisationType", typeof(string));
+        table.Columns.Add("Region", typeof(string));
+        table.Columns.Add("CreatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("IsRemoved", typeof(bool));
+
+        foreach (var organisation in organisations)
+        {
+            table.Rows.Add(
+                organisation.MigrationRunId,
+                organisation.LegacyOrganisationId,
+                DbValue(organisation.LegacyOrganisationTypeId),
+                DbValue(organisation.LegacyParentOrganisationId),
+                DbValue(organisation.LegacyOrganisationCode),
+                DbValue(organisation.LegacyOrganisationName),
+                DbValue(organisation.LegacyPostCode),
+                DbValue(organisation.OrganisationTypeId),
+                DbValue(organisation.OrganisationType),
+                DbValue(organisation.Region),
+                DbValue(organisation.CreatedUtc),
+                DbValue(organisation.UpdatedUtc),
+                organisation.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[Organisation]",
+            cancellationToken);
+    }
+
+    public async Task InsertOrganisationTypesAsync(
+        IReadOnlyCollection<TransformedOrganisationType> organisationTypes,
+        CancellationToken cancellationToken = default)
+    {
+        if (organisationTypes.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyOrganisationTypeId", typeof(int));
+        table.Columns.Add("LegacyOrganisationType", typeof(string));
+        table.Columns.Add("OrganisationTypeId", typeof(int));
+        table.Columns.Add("OrganisationType", typeof(string));
+        table.Columns.Add("IsMapped", typeof(bool));
+        table.Columns.Add("IsRemoved", typeof(bool));
+
+        foreach (var organisationType in organisationTypes)
+        {
+            table.Rows.Add(
+                organisationType.MigrationRunId,
+                organisationType.LegacyOrganisationTypeId,
+                DbValue(organisationType.LegacyOrganisationType),
+                DbValue(organisationType.OrganisationTypeId),
+                DbValue(organisationType.OrganisationType),
+                organisationType.IsMapped,
+                organisationType.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[OrganisationType]",
+            cancellationToken);
+    }
+
+    public async Task InsertProfessionalBodiesAsync(
+        IReadOnlyCollection<TransformedProfessionalBody> professionalBodies,
+        CancellationToken cancellationToken = default)
+    {
+        if (professionalBodies.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("LegacyProfessionalBodyId", typeof(int));
+        table.Columns.Add("LegacyProfessionalBody", typeof(string));
+        table.Columns.Add("LegacyProfessionalBodyCode", typeof(string));
+        table.Columns.Add("UploadPrefix", typeof(string));
+        table.Columns.Add("IncludeOnCerts", typeof(bool));
+        table.Columns.Add("IsRemoved", typeof(bool));
+        table.Columns.Add("LegacyAmendUserId", typeof(int));
+        table.Columns.Add("LegacyAmendDate", typeof(DateTimeOffset));
+        table.Columns.Add("ProfessionalBodyId", typeof(int));
+        table.Columns.Add("ProfessionalBody", typeof(string));
+        table.Columns.Add("IsMapped", typeof(bool));
+
+        foreach (var professionalBody in professionalBodies)
+        {
+            table.Rows.Add(
+                professionalBody.MigrationRunId,
+                professionalBody.LegacyProfessionalBodyId,
+                DbValue(professionalBody.LegacyProfessionalBody),
+                DbValue(professionalBody.LegacyProfessionalBodyCode),
+                DbValue(professionalBody.UploadPrefix),
+                professionalBody.IncludeOnCerts,
+                professionalBody.IsRemoved,
+                DbValue(professionalBody.LegacyAmendUserId),
+                DbValue(professionalBody.LegacyAmendDate),
+                DbValue(professionalBody.ProfessionalBodyId),
+                DbValue(professionalBody.ProfessionalBody),
+                professionalBody.IsMapped);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[ProfessionalBody]",
+            cancellationToken);
+    }
+
+    private async Task BulkInsertAsync(
+        DataTable table,
+        string destinationTable,
         CancellationToken cancellationToken)
     {
-        const string sql = """
-            INSERT INTO [migrations].[User]
-            (
-                MigrationRunId,
-                LegacyUserId,
-                FirstName,
-                LastName,
-                EmailAddress,
-                AltEmailAddress,
-                UserName,
-                RegistrationCode,
-                IsActive,
-                IsRemoved,
-                PasswordHash,
-                MustChangeNextLogin,
-                PasswordLifeCounter,
-                RemoteLoginKey,
-                RemoteLoginGuid,
-                RemoteLoginStart,
-                RestrictToSso,
-                CreatedUtc,
-                UpdatedUtc,
-                LegacyAmendUserId
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyUserId,
-                @FirstName,
-                @LastName,
-                @EmailAddress,
-                @AltEmailAddress,
-                @UserName,
-                @RegistrationCode,
-                @IsActive,
-                @IsRemoved,
-                @PasswordHash,
-                @MustChangeNextLogin,
-                @PasswordLifeCounter,
-                @RemoteLoginKey,
-                @RemoteLoginGuid,
-                @RemoteLoginStart,
-                @RestrictToSso,
-                @CreatedUtc,
-                @UpdatedUtc,
-                @LegacyAmendUserId
-            );
-            """;
-
         await using var connection =
             new SqlConnection(_connectionString);
 
         await connection.OpenAsync(cancellationToken);
 
-        await using var command =
-            new SqlCommand(sql, connection)
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync(
+                cancellationToken);
+
+        try
+        {
+            using var bulkCopy =
+                new SqlBulkCopy(
+                    connection,
+                    SqlBulkCopyOptions.CheckConstraints,
+                    transaction)
+                {
+                    DestinationTableName = destinationTable,
+                    BatchSize = table.Rows.Count,
+                    BulkCopyTimeout = 0
+                };
+
+            foreach (DataColumn column in table.Columns)
             {
-                CommandTimeout = 0
-            };
+                bulkCopy.ColumnMappings.Add(
+                    column.ColumnName,
+                    column.ColumnName);
+            }
 
-        AddParam(command, "@MigrationRunId", user.MigrationRunId);
-        AddParam(command, "@LegacyUserId", user.LegacyUserId);
-        AddParam(command, "@FirstName", user.FirstName);
-        AddParam(command, "@LastName", user.LastName);
-        AddParam(command, "@EmailAddress", user.EmailAddress);
-        AddParam(command, "@AltEmailAddress", user.AltEmailAddress);
-        AddParam(command, "@UserName", user.UserName);
-        AddParam(command, "@RegistrationCode", user.RegistrationCode);
-        AddParam(command, "@IsActive", user.IsActive);
-        AddParam(command, "@IsRemoved", user.IsRemoved);
-        AddParam(command, "@PasswordHash", user.PasswordHash);
-        AddParam(command, "@MustChangeNextLogin", user.MustChangeNextLogin);
-        AddParam(command, "@PasswordLifeCounter", user.PasswordLifeCounter);
-        AddParam(command, "@RemoteLoginKey", user.RemoteLoginKey);
-        AddParam(command, "@RemoteLoginGuid", user.RemoteLoginGuid);
-        AddParam(command, "@RemoteLoginStart", user.RemoteLoginStart);
-        AddParam(command, "@RestrictToSso", user.RestrictToSso);
-        AddParam(command, "@CreatedUtc", user.CreatedUtc);
-        AddParam(command, "@UpdatedUtc", user.UpdatedUtc);
-        AddParam(command, "@LegacyAmendUserId", user.LegacyAmendUserId);
+            await bulkCopy.WriteToServerAsync(
+                table,
+                cancellationToken);
 
-        await command.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(
+                cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(
+                cancellationToken);
+
+            throw;
+        }
     }
 
-    public async Task InsertUserEmploymentAsync(
-        TransformedUserEmployment employment,
-        CancellationToken cancellationToken)
-    {
-        const string sql = """
-            INSERT INTO [migrations].[UserEmployment]
-            (
-                MigrationRunId,
-                LegacyUserEmploymentId,
-                LegacyUserId,
-                LegacyLocationId,
-                LegacyJobRoleId,
-                StartDateUtc,
-                EndDateUtc,
-                UpdatedUtc,
-                LegacyAmendUserId,
-                IsRemoved
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyUserEmploymentId,
-                @LegacyUserId,
-                @LegacyLocationId,
-                @LegacyJobRoleId,
-                @StartDateUtc,
-                @EndDateUtc,
-                @UpdatedUtc,
-                @LegacyAmendUserId,
-                @IsRemoved
-            );
-            """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
-
-        AddParam(command, "@MigrationRunId", employment.MigrationRunId);
-        AddParam(command, "@LegacyUserEmploymentId", employment.LegacyUserEmploymentId);
-        AddParam(command, "@LegacyUserId", employment.LegacyUserId);
-        AddParam(command, "@LegacyLocationId", employment.LegacyLocationId);
-        AddParam(command, "@LegacyJobRoleId", employment.LegacyJobRoleId);
-        AddParam(command, "@StartDateUtc", employment.StartDateUtc);
-        AddParam(command, "@EndDateUtc", employment.EndDateUtc);
-        AddParam(command, "@UpdatedUtc", employment.UpdatedUtc);
-        AddParam(command, "@LegacyAmendUserId", employment.LegacyAmendUserId);
-        AddParam(command, "@IsRemoved", employment.IsRemoved);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    public async Task InsertUserAdminLocationAsync(
-        TransformedUserAdminLocation adminLocation,
-        CancellationToken cancellationToken)
-    {
-        const string sql = """
-            INSERT INTO [migrations].[UserAdminLocation]
-            (
-                MigrationRunId,
-                LegacyUserId,
-                LegacyAdminLocationId,
-                IsRemoved
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyUserId,
-                @LegacyAdminLocationId,
-                @IsRemoved
-            );
-            """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
-
-        AddParam(command, "@MigrationRunId", adminLocation.MigrationRunId);
-        AddParam(command, "@LegacyUserId", adminLocation.LegacyUserId);
-        AddParam(command, "@LegacyAdminLocationId", adminLocation.LegacyAdminLocationId);
-        AddParam(command, "@IsRemoved", adminLocation.IsRemoved);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    public async Task InsertUserGroupReporterAsync(
-        TransformedUserGroupReporter groupReporter,
-        CancellationToken cancellationToken)
-    {
-        const string sql = """
-            INSERT INTO [migrations].[UserGroupReporter]
-            (
-                MigrationRunId,
-                LegacyUserGroupReporterId,
-                LegacyUserId,
-                LegacyUserGroupId,
-                IsRemoved,
-                LegacyAmendUserId,
-                UpdatedUtc
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyUserGroupReporterId,
-                @LegacyUserId,
-                @LegacyUserGroupId,
-                @IsRemoved,
-                @LegacyAmendUserId,
-                @UpdatedUtc
-            );
-            """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
-
-        AddParam(command, "@MigrationRunId", groupReporter.MigrationRunId);
-        AddParam(command, "@LegacyUserGroupReporterId", groupReporter.LegacyUserGroupReporterId);
-        AddParam(command, "@LegacyUserId", groupReporter.LegacyUserId);
-        AddParam(command, "@LegacyUserGroupId", groupReporter.LegacyUserGroupId);
-        AddParam(command, "@IsRemoved", groupReporter.IsRemoved);
-        AddParam(command, "@LegacyAmendUserId", groupReporter.LegacyAmendUserId);
-        AddParam(command, "@UpdatedUtc", groupReporter.UpdatedUtc);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    public async Task InsertOrganisationAsync(
-        TransformedOrganisation organisation,
-        CancellationToken cancellationToken)
-    {
-        const string sql = """
-            INSERT INTO [migrations].[Organisation]
-            (
-                MigrationRunId,
-                LegacyOrganisationId,
-                LegacyOrganisationTypeId,
-                LegacyParentOrganisationId,
-                LegacyOrganisationCode,
-                LegacyOrganisationName,
-                LegacyPostCode,
-                OrganisationTypeId,
-                OrganisationType,
-                Region,
-                CreatedUtc,
-                UpdatedUtc,
-                IsRemoved
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyOrganisationId,
-                @LegacyOrganisationTypeId,
-                @LegacyParentOrganisationId,
-                @LegacyOrganisationCode,
-                @LegacyOrganisationName,
-                @LegacyPostCode,
-                @OrganisationTypeId,
-                @OrganisationType,
-                @Region,
-                @CreatedUtc,
-                @UpdatedUtc,
-                @IsRemoved
-            );
-            """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
-
-        AddParam(command, "@MigrationRunId", organisation.MigrationRunId);
-        AddParam(command, "@LegacyOrganisationId", organisation.LegacyOrganisationId);
-        AddParam(command, "@LegacyOrganisationTypeId", organisation.LegacyOrganisationTypeId);
-        AddParam(command, "@LegacyParentOrganisationId", organisation.LegacyParentOrganisationId);
-        AddParam(command, "@LegacyOrganisationCode", organisation.LegacyOrganisationCode);
-        AddParam(command, "@LegacyOrganisationName", organisation.LegacyOrganisationName);
-        AddParam(command, "@LegacyPostCode", organisation.LegacyPostCode);
-        AddParam(command, "@OrganisationTypeId", organisation.OrganisationTypeId);
-        AddParam(command, "@OrganisationType", organisation.OrganisationType);
-        AddParam(command, "@Region", organisation.Region);
-        AddParam(command, "@CreatedUtc", organisation.CreatedUtc);
-        AddParam(command, "@UpdatedUtc", organisation.UpdatedUtc);
-        AddParam(command, "@IsRemoved", organisation.IsRemoved);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    public async Task InsertOrganisationTypeAsync(
-        TransformedOrganisationType organisationType,
-        CancellationToken cancellationToken)
-    {
-        const string sql = """
-            INSERT INTO [migrations].[OrganisationType]
-            (
-                MigrationRunId,
-                LegacyOrganisationTypeId,
-                LegacyOrganisationType,
-                OrganisationTypeId,
-                OrganisationType,
-                IsMapped,
-                IsRemoved
-            )
-            VALUES
-            (
-                @MigrationRunId,
-                @LegacyOrganisationTypeId,
-                @LegacyOrganisationType,
-                @OrganisationTypeId,
-                @OrganisationType,
-                @IsMapped,
-                @IsRemoved
-            );
-            """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
-
-        AddParam(command, "@MigrationRunId", organisationType.MigrationRunId);
-        AddParam(command, "@LegacyOrganisationTypeId", organisationType.LegacyOrganisationTypeId);
-        AddParam(command, "@LegacyOrganisationType", organisationType.LegacyOrganisationType);
-        AddParam(command, "@OrganisationTypeId", organisationType.OrganisationTypeId);
-        AddParam(command, "@OrganisationType", organisationType.OrganisationType);
-        AddParam(command, "@IsMapped", organisationType.IsMapped);
-        AddParam(command, "@IsRemoved", organisationType.IsRemoved);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static void AddParam(
-        SqlCommand command,
-        string name,
+    private static object DbValue(
         object? value)
     {
-        command.Parameters.Add(
-            new SqlParameter(name, value ?? DBNull.Value));
+        return value ?? DBNull.Value;
     }
 }

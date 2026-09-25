@@ -4,7 +4,8 @@ using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
 using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Services;
-
+using Microsoft.Extensions.Options;
+using LearningHub.UserMigrationService.Configuration;
 
 namespace LearningHub.UserMigrationService.Pipeline;
 
@@ -32,6 +33,7 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IOrganisationTransformer _organisationTransformer;
     private readonly IOrganisationTypeTransformer _organisationTypeTransformer;
     private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
+    private readonly int _batchSize;
 
     public MigrationPipeline(
         ILearningHubRepository learningHubRepository,
@@ -55,7 +57,8 @@ public class MigrationPipeline : IMigrationPipeline
         ISupportingLookupExtractor supportingLookupExtractor,
         IOrganisationTransformer organisationTransformer,
         IOrganisationTypeTransformer organisationTypeTransformer,
-        IOrganisationTypeMappingRepository organisationTypeMappingRepository)
+        IOrganisationTypeMappingRepository organisationTypeMappingRepository,
+        IOptions<MigrationOptions> migrationOptions)
     {
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
@@ -79,6 +82,12 @@ public class MigrationPipeline : IMigrationPipeline
         _organisationTransformer = organisationTransformer;
         _organisationTypeTransformer = organisationTypeTransformer;
         _organisationTypeMappingRepository = organisationTypeMappingRepository;
+        _batchSize = migrationOptions.Value.BatchSize;
+        if (_batchSize <= 0)
+        {
+            throw new InvalidOperationException(
+                "MigrationOptions:BatchSize must be greater than zero.");
+        }
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -755,7 +764,8 @@ public class MigrationPipeline : IMigrationPipeline
         var mappingDictionary =
             mappings.ToDictionary(
                 x => x.LegacyProfessionalBodyId);
-
+        var transformedRecords =
+   new List<TransformedProfessionalBody>();
         await foreach (
             var source in professionalBodies
                 .WithCancellation(cancellationToken))
@@ -794,20 +804,35 @@ public class MigrationPipeline : IMigrationPipeline
                 continue;
             }
 
-            await _stagingRepository
-                .InsertProfessionalBodyAsync(
-                    transformed,
+            transformedRecords.Add(transformed);
+
+            if (transformedRecords.Count >= _batchSize)
+            {
+                await _stagingRepository.InsertProfessionalBodiesAsync(
+                    transformedRecords,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-        }
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
 
+                transformedRecords.Clear();
+            }
+        }
+        if (transformedRecords.Count > 0)
+        {
+            await _stagingRepository.InsertProfessionalBodiesAsync(
+                transformedRecords,
+                cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
+        }
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageUsersAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageUsersAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
@@ -816,63 +841,78 @@ public class MigrationPipeline : IMigrationPipeline
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        var users =
-            _userExtractor.ExtractAsync(
-                userIds,
-                cancellationToken);
-
-        await foreach (
-            var source in users
-                .WithCancellation(cancellationToken))
+        foreach (var userBatch in userIds.Chunk(_batchSize))
         {
-            statistics.RecordsRead++;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var transformed =
-                _userTransformer.Transform(
-                    source,
-                    migrationRunId);
+            var transformedUsers =
+                new List<TransformedUser>(_batchSize);
 
-            var validationErrors =
-                TransformationValidator.Validate(
-                    transformed);
+            var users =
+                _userExtractor.ExtractAsync(
+                    userBatch,
+                    cancellationToken);
 
-            if (validationErrors.Count > 0)
+            await foreach (
+                var source in users
+                    .WithCancellation(cancellationToken))
             {
-                statistics.RecordsFailed++;
+                statistics.RecordsRead++;
 
-                foreach (var error in validationErrors)
+                var transformed =
+                    _userTransformer.Transform(
+                        source,
+                        migrationRunId);
+
+                var validationErrors =
+                    TransformationValidator.Validate(
+                        transformed);
+
+                if (validationErrors.Count > 0)
                 {
-                    await _migrationLogger.LogAsync(
-                        migrationRunId,
-                        null,
-                        "Warning",
-                        "UserTransformer",
-                        $"Legacy User " +
-                        $"{source.UserId}: {error}");
+                    statistics.RecordsFailed++;
+
+                    foreach (var error in validationErrors)
+                    {
+                        await _migrationLogger.LogAsync(
+                            migrationRunId,
+                            null,
+                            "Warning",
+                            "UserTransformer",
+                            $"Legacy User {source.UserId}: {error}");
+                    }
+
+                    continue;
                 }
 
-                continue;
+                transformedUsers.Add(transformed);
+
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
             }
 
-            await _stagingRepository
-                .InsertUserAsync(
-                    transformed,
+            if (transformedUsers.Count > 0)
+            {
+                await _stagingRepository.InsertUsersAsync(
+                    transformedUsers,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-
-            if (transformed.IsRemoved)
-            {
-                statistics.RecordsRemoved++;
+                statistics.RecordsWritten +=
+                    transformedUsers.Count;
             }
+
+            Console.WriteLine(
+                $"Processed user batch: {userBatch.Length} IDs.");
         }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageUserEmploymentAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageUserEmploymentAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
@@ -881,41 +921,54 @@ public class MigrationPipeline : IMigrationPipeline
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        var employmentRecords =
-            _userEmploymentExtractor.ExtractAsync(
-                userIds,
-                cancellationToken);
-
-        await foreach (
-            var source in employmentRecords
-                .WithCancellation(cancellationToken))
+        foreach (var userBatch in userIds.Chunk(_batchSize))
         {
-            statistics.RecordsRead++;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var transformed =
-                _userEmploymentTransformer.Transform(
-                    source,
-                    migrationRunId);
+            var transformedRecords =
+                new List<TransformedUserEmployment>();
 
-            await _stagingRepository
-                .InsertUserEmploymentAsync(
-                    transformed,
+            var employmentRecords =
+                _userEmploymentExtractor.ExtractAsync(
+                    userBatch,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-
-            if (transformed.IsRemoved)
+            await foreach (
+                var source in employmentRecords
+                    .WithCancellation(cancellationToken))
             {
-                statistics.RecordsRemoved++;
+                statistics.RecordsRead++;
+
+                var transformed =
+                    _userEmploymentTransformer.Transform(
+                        source,
+                        migrationRunId);
+
+                transformedRecords.Add(transformed);
+
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository.InsertUserEmploymentsAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
             }
         }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageUserAdminLocationsAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageUserAdminLocationsAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
@@ -924,41 +977,54 @@ public class MigrationPipeline : IMigrationPipeline
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        var records =
-            _userAdminLocationExtractor.ExtractAsync(
-                userIds,
-                cancellationToken);
-
-        await foreach (
-            var source in records
-                .WithCancellation(cancellationToken))
+        foreach (var userBatch in userIds.Chunk(_batchSize))
         {
-            statistics.RecordsRead++;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var transformed =
-                _userAdminLocationTransformer.Transform(
-                    source,
-                    migrationRunId);
+            var transformedRecords =
+                new List<TransformedUserAdminLocation>();
 
-            await _stagingRepository
-                .InsertUserAdminLocationAsync(
-                    transformed,
+            var records =
+                _userAdminLocationExtractor.ExtractAsync(
+                    userBatch,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-
-            if (transformed.IsRemoved)
+            await foreach (
+                var source in records
+                    .WithCancellation(cancellationToken))
             {
-                statistics.RecordsRemoved++;
+                statistics.RecordsRead++;
+
+                var transformed =
+                    _userAdminLocationTransformer.Transform(
+                        source,
+                        migrationRunId);
+
+                transformedRecords.Add(transformed);
+
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository.InsertUserAdminLocationsAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
             }
         }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageUserGroupReportersAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageUserGroupReportersAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
@@ -967,41 +1033,54 @@ public class MigrationPipeline : IMigrationPipeline
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        var records =
-            _userGroupReporterExtractor.ExtractAsync(
-                userIds,
-                cancellationToken);
-
-        await foreach (
-            var source in records
-                .WithCancellation(cancellationToken))
+        foreach (var userBatch in userIds.Chunk(_batchSize))
         {
-            statistics.RecordsRead++;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var transformed =
-                _userGroupReporterTransformer.Transform(
-                    source,
-                    migrationRunId);
+            var transformedRecords =
+                new List<TransformedUserGroupReporter>();
 
-            await _stagingRepository
-                .InsertUserGroupReporterAsync(
-                    transformed,
+            var records =
+                _userGroupReporterExtractor.ExtractAsync(
+                    userBatch,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-
-            if (transformed.IsRemoved)
+            await foreach (
+                var source in records
+                    .WithCancellation(cancellationToken))
             {
-                statistics.RecordsRemoved++;
+                statistics.RecordsRead++;
+
+                var transformed =
+                    _userGroupReporterTransformer.Transform(
+                        source,
+                        migrationRunId);
+
+                transformedRecords.Add(transformed);
+
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository.InsertUserGroupReportersAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
             }
         }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageOrganisationTypesAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageOrganisationTypesAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics =
             new MigrationStatistics();
@@ -1019,6 +1098,9 @@ public class MigrationPipeline : IMigrationPipeline
             _supportingLookupExtractor
                 .ExtractOrganisationTypesAsync(
                     cancellationToken);
+
+        var transformedRecords =
+            new List<TransformedOrganisationType>();
 
         await foreach (
             var source in organisationTypes
@@ -1060,25 +1142,42 @@ public class MigrationPipeline : IMigrationPipeline
                 continue;
             }
 
-            await _stagingRepository
-                .InsertOrganisationTypeAsync(
-                    transformed,
-                    cancellationToken);
-
-            statistics.RecordsWritten++;
+            transformedRecords.Add(transformed);
 
             if (transformed.IsRemoved)
             {
                 statistics.RecordsRemoved++;
             }
+
+            if (transformedRecords.Count >= _batchSize)
+            {
+                await _stagingRepository.InsertOrganisationTypesAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
+
+                transformedRecords.Clear();
+            }
+        }
+
+        if (transformedRecords.Count > 0)
+        {
+            await _stagingRepository.InsertOrganisationTypesAsync(
+                transformedRecords,
+                cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
         }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-    TransformAndStageOrganisationsAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
+TransformAndStageOrganisationsAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
     {
         var statistics =
             new MigrationStatistics();
@@ -1097,64 +1196,77 @@ public class MigrationPipeline : IMigrationPipeline
             mappings.ToDictionary(
                 x => x.LegacyOrganisationTypeId);
 
-        var organisations =
-            _organisationExtractor.ExtractAsync(
-                locationIds,
-                cancellationToken);
-
-        await foreach (
-            var source in organisations
-                .WithCancellation(cancellationToken))
+        foreach (var locationBatch in locationIds.Chunk(_batchSize))
         {
-            statistics.RecordsRead++;
+            cancellationToken.ThrowIfCancellationRequested();
 
-            OrganisationTypeMapping? mapping = null;
+            var transformedRecords =
+                new List<TransformedOrganisation>();
 
-            if (source.LocationTypeId.HasValue)
-            {
-                mappingDictionary.TryGetValue(
-                    source.LocationTypeId.Value,
-                    out mapping);
-            }
-
-            var transformed =
-                _organisationTransformer.Transform(
-                    source,
-                    mapping,
-                    migrationRunId);
-
-            var validationErrors =
-                TransformationValidator.Validate(
-                    transformed);
-
-            if (validationErrors.Count > 0)
-            {
-                statistics.RecordsFailed++;
-
-                foreach (var error in validationErrors)
-                {
-                    await _migrationLogger.LogAsync(
-                        migrationRunId,
-                        null,
-                        "Warning",
-                        "OrganisationTransformer",
-                        $"Legacy Organisation " +
-                        $"{source.LocationId}: {error}");
-                }
-
-                continue;
-            }
-
-            await _stagingRepository
-                .InsertOrganisationAsync(
-                    transformed,
+            var organisations =
+                _organisationExtractor.ExtractAsync(
+                    locationBatch,
                     cancellationToken);
 
-            statistics.RecordsWritten++;
-
-            if (transformed.IsRemoved)
+            await foreach (
+                var source in organisations
+                    .WithCancellation(cancellationToken))
             {
-                statistics.RecordsRemoved++;
+                statistics.RecordsRead++;
+
+                OrganisationTypeMapping? mapping = null;
+
+                if (source.LocationTypeId.HasValue)
+                {
+                    mappingDictionary.TryGetValue(
+                        source.LocationTypeId.Value,
+                        out mapping);
+                }
+
+                var transformed =
+                    _organisationTransformer.Transform(
+                        source,
+                        mapping,
+                        migrationRunId);
+
+                var validationErrors =
+                    TransformationValidator.Validate(
+                        transformed);
+
+                if (validationErrors.Count > 0)
+                {
+                    statistics.RecordsFailed++;
+
+                    foreach (var error in validationErrors)
+                    {
+                        await _migrationLogger.LogAsync(
+                            migrationRunId,
+                            null,
+                            "Warning",
+                            "OrganisationTransformer",
+                            $"Legacy Organisation " +
+                            $"{source.LocationId}: {error}");
+                    }
+
+                    continue;
+                }
+
+                transformedRecords.Add(transformed);
+
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository.InsertOrganisationsAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
             }
         }
 

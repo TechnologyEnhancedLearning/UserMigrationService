@@ -4,31 +4,31 @@ namespace LearningHub.UserMigrationService.Interfaces;
 
 public interface IStagingRepository
 {
-    Task InsertProfessionalBodyAsync(
-        TransformedProfessionalBody professionalBody,
+    Task InsertProfessionalBodiesAsync(
+        IReadOnlyCollection<TransformedProfessionalBody> professionalBodies,
         CancellationToken cancellationToken = default);
 
-    Task InsertUserAsync(
-        TransformedUser user,
+    Task InsertUsersAsync(
+        IReadOnlyCollection<TransformedUser> users,
         CancellationToken cancellationToken = default);
 
-    Task InsertUserEmploymentAsync(
-        TransformedUserEmployment employment,
+    Task InsertUserEmploymentsAsync(
+        IReadOnlyCollection<TransformedUserEmployment> employments,
         CancellationToken cancellationToken = default);
 
-    Task InsertUserAdminLocationAsync(
-        TransformedUserAdminLocation adminLocation,
+    Task InsertUserAdminLocationsAsync(
+        IReadOnlyCollection<TransformedUserAdminLocation> adminLocations,
         CancellationToken cancellationToken = default);
 
-    Task InsertUserGroupReporterAsync(
-        TransformedUserGroupReporter groupReporter,
+    Task InsertUserGroupReportersAsync(
+        IReadOnlyCollection<TransformedUserGroupReporter> groupReporters,
         CancellationToken cancellationToken = default);
 
-    Task InsertOrganisationAsync(
-        TransformedOrganisation organisation,
+    Task InsertOrganisationsAsync(
+        IReadOnlyCollection<TransformedOrganisation> organisations,
         CancellationToken cancellationToken = default);
 
-    Task InsertOrganisationTypeAsync(
-        TransformedOrganisationType organisationType,
+    Task InsertOrganisationTypesAsync(
+        IReadOnlyCollection<TransformedOrganisationType> organisationTypes,
         CancellationToken cancellationToken = default);
 }

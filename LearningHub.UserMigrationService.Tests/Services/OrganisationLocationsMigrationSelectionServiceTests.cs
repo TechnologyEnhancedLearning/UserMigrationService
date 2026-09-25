@@ -1,6 +1,8 @@
 ﻿using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Services;
 using Moq;
+using LearningHub.UserMigrationService.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace LearningHub.UserMigrationService.Tests.Services;
 
@@ -16,9 +18,17 @@ public class OrganisationMigrationSelectionServiceTests
         _legacyRepository = new Mock<ILegacyRepository>();
         _learningHubRepository = new Mock<ILearningHubRepository>();
 
+        var migrationOptions =
+                     Options.Create(
+                        new MigrationOptions
+                         {
+                             BatchSize = 1000
+                         });
+
         _service = new OrganisationMigrationSelectionService(
             _legacyRepository.Object,
-            _learningHubRepository.Object);
+            _learningHubRepository.Object,
+            migrationOptions);
     }
 
     [Fact]
@@ -183,5 +193,59 @@ public class OrganisationMigrationSelectionServiceTests
                 It.IsAny<IEnumerable<int>>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+    [Fact]
+    public async Task PopulateOrganisationLocationsToMigrateAsync_ShouldProcessUsersInBatches()
+    {
+        // Arrange
+
+        var userIds = Enumerable.Range(1, 2501).ToArray();
+
+        var adminBatchSizes = new List<int>();
+        var employmentBatchSizes = new List<int>();
+
+        _legacyRepository
+            .Setup(x => x.GetElfhAdminLocationIdsToMigrateAsync(
+                It.IsAny<IEnumerable<int>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<int>, CancellationToken>(
+                (ids, _) =>
+                {
+                    adminBatchSizes.Add(ids.Count());
+                })
+            .ReturnsAsync(new List<int>());
+
+        _legacyRepository
+            .Setup(x => x.GetElfhEmploymentLocationIdsToMigrateAsync(
+                It.IsAny<IEnumerable<int>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<int>, CancellationToken>(
+                (ids, _) =>
+                {
+                    employmentBatchSizes.Add(ids.Count());
+                })
+            .ReturnsAsync(new List<int>());
+
+        _learningHubRepository
+            .Setup(x => x.InsertOrganisationLocationIdsToMigrateAsync(
+                It.IsAny<IEnumerable<int>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Act
+
+        await _service.PopulateOrganisationLocationsToMigrateAsync(
+            userIds,
+            CancellationToken.None);
+
+        // Assert
+
+        Assert.Equal(
+            new[] { 1000, 1000, 501 },
+            adminBatchSizes);
+
+        Assert.Equal(
+            new[] { 1000, 1000, 501 },
+            employmentBatchSizes);
     }
 }
