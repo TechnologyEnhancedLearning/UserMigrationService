@@ -1112,6 +1112,19 @@ TransformAndStageOrganisationTypesAsync(
                 source.Id,
                 out var mapping);
 
+            if (mapping is null || !mapping.IsMapped)
+            {
+                statistics.RecordsUnmapped++;
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    null,
+                    "Warning",
+                    "OrganisationTypeTransformer",
+                    $"Legacy Organisation Type {source.Id} " +
+                    $"('{source.Name}') does not have a valid Learning Hub mapping.");
+            }
+
             var transformed =
                 _organisationTypeTransformer.Transform(
                     source,

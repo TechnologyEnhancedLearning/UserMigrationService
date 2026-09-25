@@ -11,4 +11,5 @@ public class MigrationStatistics
     public long RecordsFailed { get; set; }
 
     public long RecordsRemoved { get; set; }
+    public int RecordsUnmapped { get; set; }
 }

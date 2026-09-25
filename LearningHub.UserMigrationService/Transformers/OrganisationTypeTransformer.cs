@@ -33,6 +33,7 @@ public class OrganisationTypeTransformer : IOrganisationTypeTransformer
 
             IsRemoved =
                 source.Deleted
+
         };
     }
 }
