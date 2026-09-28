@@ -10,12 +10,33 @@ namespace LearningHub.UserMigrationService.Repositories;
 public class StagingRepository : IStagingRepository
 {
     private readonly string _connectionString;
+    private readonly int _bulkCopyBatchSize;
+    private readonly int _bulkCopyTimeoutSeconds;
 
     public StagingRepository(
-        IOptions<DatabaseOptions> databaseOptions)
+        IOptions<DatabaseOptions> databaseOptions,
+        IOptions<MigrationOptions> migrationOptions)
     {
         _connectionString =
             databaseOptions.Value.LearningHubConnectionString;
+
+        _bulkCopyBatchSize =
+       migrationOptions.Value.BulkCopyBatchSize;
+
+        _bulkCopyTimeoutSeconds =
+            migrationOptions.Value.BulkCopyTimeoutSeconds;
+
+        if (_bulkCopyBatchSize <= 0)
+        {
+            throw new InvalidOperationException(
+                "MigrationOptions:BulkCopyBatchSize must be greater than zero.");
+        }
+
+        if (_bulkCopyTimeoutSeconds < 0)
+        {
+            throw new InvalidOperationException(
+                "MigrationOptions:BulkCopyTimeoutSeconds cannot be negative.");
+        }
     }
 
     public async Task InsertUsersAsync(
@@ -310,7 +331,143 @@ public class StagingRepository : IStagingRepository
             "[migrations].[ProfessionalBody]",
             cancellationToken);
     }
+    public async Task InsertUserOrganisationsAsync(
+    IReadOnlyCollection<TransformedUserOrganisation> userOrganisations,
+    CancellationToken cancellationToken = default)
+    {
+        if (userOrganisations.Count == 0)
+            return;
 
+        var table = new DataTable();
+
+        table.Columns.Add(
+            "MigrationRunId",
+            typeof(Guid));
+
+        table.Columns.Add(
+            "LegacyUserId",
+            typeof(int));
+
+        table.Columns.Add(
+            "LegacyOrganisationId",
+            typeof(int));
+
+        table.Columns.Add(
+            "LegacyUserEmploymentId",
+            typeof(int));
+
+        table.Columns.Add(
+            "IsRemoved",
+            typeof(bool));
+
+        foreach (var record in userOrganisations)
+        {
+            table.Rows.Add(
+                record.MigrationRunId,
+                record.LegacyUserId,
+                record.LegacyOrganisationId,
+                DbValue(record.LegacyUserEmploymentId),
+                record.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserOrganisation]",
+            cancellationToken);
+    }
+    public async Task InsertUserRolesAsync(
+    IReadOnlyCollection<TransformedUserRole> userRoles,
+    CancellationToken cancellationToken = default)
+    {
+        if (userRoles.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add(
+            "MigrationRunId",
+            typeof(Guid));
+
+        table.Columns.Add(
+            "LegacyUserId",
+            typeof(int));
+
+        table.Columns.Add(
+            "LegacyAdminLocationId",
+            typeof(int));
+
+        table.Columns.Add(
+            "RoleId",
+            typeof(int));
+
+        table.Columns.Add(
+            "IsRemoved",
+            typeof(bool));
+
+        foreach (var record in userRoles)
+        {
+            table.Rows.Add(
+                record.MigrationRunId,
+                record.LegacyUserId,
+                DbValue(record.LegacyAdminLocationId),
+                record.RoleId,
+                record.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserRole]",
+            cancellationToken);
+    }
+    public async Task InsertUserGroupRolesAsync(
+    IReadOnlyCollection<TransformedUserGroupRole> userGroupRoles,
+    CancellationToken cancellationToken = default)
+    {
+        if (userGroupRoles.Count == 0)
+            return;
+
+        var table = new DataTable();
+
+        table.Columns.Add(
+            "MigrationRunId",
+            typeof(Guid));
+
+        table.Columns.Add(
+            "LegacyUserId",
+            typeof(int));
+
+        table.Columns.Add(
+            "LegacyUserGroupId",
+            typeof(int));
+
+        table.Columns.Add(
+            "LegacyUserGroupReporterId",
+            typeof(int));
+
+        table.Columns.Add(
+            "RoleId",
+            typeof(int));
+
+        table.Columns.Add(
+            "IsRemoved",
+            typeof(bool));
+
+        foreach (var record in userGroupRoles)
+        {
+            table.Rows.Add(
+                record.MigrationRunId,
+                record.LegacyUserId,
+                record.LegacyUserGroupId,
+                DbValue(record.LegacyUserGroupReporterId),
+                record.RoleId,
+                record.IsRemoved);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserGroupRole]",
+            cancellationToken);
+    }
     private async Task BulkInsertAsync(
         DataTable table,
         string destinationTable,
@@ -328,15 +485,19 @@ public class StagingRepository : IStagingRepository
         try
         {
             using var bulkCopy =
-                new SqlBulkCopy(
-                    connection,
-                    SqlBulkCopyOptions.CheckConstraints,
-                    transaction)
-                {
-                    DestinationTableName = destinationTable,
-                    BatchSize = table.Rows.Count,
-                    BulkCopyTimeout = 0
-                };
+                    new SqlBulkCopy(
+                        connection,
+                        SqlBulkCopyOptions.CheckConstraints,
+                        transaction)
+                    {
+                        DestinationTableName = destinationTable,
+
+                        BatchSize = _bulkCopyBatchSize,
+
+                        BulkCopyTimeout = _bulkCopyTimeoutSeconds,
+
+                        EnableStreaming = true
+                    };
 
             foreach (DataColumn column in table.Columns)
             {

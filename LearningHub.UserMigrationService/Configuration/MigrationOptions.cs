@@ -11,4 +11,6 @@ public class MigrationOptions
     public int UserMigrationMonths { get; set; } = 24;
     public int BatchSize { get; set; } = 1000;
     public bool EnableValidation { get; set; } = true;
+    public int BulkCopyBatchSize { get; set; } = 1000;
+    public int BulkCopyTimeoutSeconds { get; set; } = 0;
 }

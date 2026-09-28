@@ -31,4 +31,15 @@ public interface IStagingRepository
     Task InsertOrganisationTypesAsync(
         IReadOnlyCollection<TransformedOrganisationType> organisationTypes,
         CancellationToken cancellationToken = default);
+    Task InsertUserOrganisationsAsync(
+    IReadOnlyCollection<TransformedUserOrganisation> userOrganisations,
+    CancellationToken cancellationToken = default);
+
+    Task InsertUserRolesAsync(
+        IReadOnlyCollection<TransformedUserRole> userRoles,
+        CancellationToken cancellationToken = default);
+
+    Task InsertUserGroupRolesAsync(
+        IReadOnlyCollection<TransformedUserGroupRole> userGroupRoles,
+        CancellationToken cancellationToken = default);
 }

@@ -1285,4 +1285,43 @@ TransformAndStageOrganisationsAsync(
 
         return statistics;
     }
+    private async Task<MigrationStatistics>
+TransformAndStageUserOrganisationsAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        // TODO:
+        // Implement source query according to the
+        // UserOrganisations staging-table seeding notes.
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+TransformAndStageUserRolesAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        // TODO:
+        // Implement UserAdminLocation -> Learning Hub Role
+        // mapping according to the staging notes.
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+TransformAndStageUserGroupRolesAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
+    {
+        var statistics = new MigrationStatistics();
+
+        // TODO:
+        // Implement UserGroupReporter -> UserGroupRole
+        // mapping according to the staging notes.
+
+        return statistics;
+    }
 }
