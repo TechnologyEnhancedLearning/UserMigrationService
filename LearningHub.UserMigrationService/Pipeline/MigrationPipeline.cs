@@ -1,11 +1,12 @@
-﻿using LearningHub.UserMigrationService.Interfaces;
+﻿using LearningHub.UserMigrationService.Configuration;
+using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Interfaces.Extractors;
 using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
 using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Services;
+using LearningHub.UserMigrationService.Transformers;
 using Microsoft.Extensions.Options;
-using LearningHub.UserMigrationService.Configuration;
 
 namespace LearningHub.UserMigrationService.Pipeline;
 
@@ -16,72 +17,99 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IMigrationLogger _migrationLogger;
     private readonly IUserMigrationSelectionService _userMigrationSelectionService;
     private readonly IOrganisationMigrationSelectionService _organisationMigrationSelectionService;
+
+
     private readonly IProfessionalBodyExtractor _professionalBodyExtractor;
-    private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
-    private readonly IProfessionalBodyTransformer _professionalBodyTransformer;
-    private readonly IStagingRepository _stagingRepository;
     private readonly IUserExtractor _userExtractor;
-    private readonly IUserTransformer _userTransformer;
-    private readonly IUserEmploymentExtractor _userEmploymentExtractor;
-    private readonly IUserEmploymentTransformer _userEmploymentTransformer;
     private readonly IUserAdminLocationExtractor _userAdminLocationExtractor;
     private readonly IUserAdminLocationTransformer _userAdminLocationTransformer;
     private readonly IUserGroupReporterExtractor _userGroupReporterExtractor;
     private readonly IUserGroupReporterTransformer _userGroupReporterTransformer;
-    private readonly IOrganisationExtractor _organisationExtractor;
     private readonly ISupportingLookupExtractor _supportingLookupExtractor;
+    private readonly IUserEmploymentExtractor _userEmploymentExtractor;
+    private readonly IOrganisationExtractor _organisationExtractor;
+
     private readonly IOrganisationTransformer _organisationTransformer;
     private readonly IOrganisationTypeTransformer _organisationTypeTransformer;
+    private readonly IUserTransformer _userTransformer;
+    private readonly IUserEmploymentTransformer _userEmploymentTransformer;
+    private readonly IProfessionalBodyTransformer _professionalBodyTransformer;
+    private readonly IUserOrganisationTransformer _userOrganisationTransformer;
+    private readonly IUserRoleTransformer  _userRoleTransformer;
+    private readonly IUserGroupRoleTransformer  _userGroupRoleTransformer;
+
+
+    private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
+    private readonly IStagingRepository _stagingRepository;
     private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
+    private readonly IStaffGroupJobRoleTypeMappingRepository _staffGroupJobRoleTypeMappingRepository;
     private readonly int _batchSize;
 
     public MigrationPipeline(
-        ILearningHubRepository learningHubRepository,
-        ILegacyRepository legacyRepository,
+
+        IProfessionalBodyExtractor professionalBodyExtractor,
+        IUserExtractor userExtractor,
+        IUserEmploymentExtractor userEmploymentExtractor,
+        IUserAdminLocationExtractor userAdminLocationExtractor,
+        IUserGroupReporterExtractor userGroupReporterExtractor,
+        IOrganisationExtractor organisationExtractor,
+        ISupportingLookupExtractor supportingLookupExtractor,
+
+        IProfessionalBodyTransformer professionalBodyTransformer,
+        IUserTransformer userTransformer,
+        IUserEmploymentTransformer userEmploymentTransformer,
+        IUserAdminLocationTransformer userAdminLocationTransformer,
+        IUserGroupReporterTransformer userGroupReporterTransformer,
+        IOrganisationTransformer organisationTransformer,
+        IOrganisationTypeTransformer organisationTypeTransformer,
+        IUserOrganisationTransformer userOrganisationTransformer,
+        IUserRoleTransformer userRoleTransformer,
+        IUserGroupRoleTransformer userGroupRoleTransformer,
+
         IMigrationLogger migrationLogger,
         IUserMigrationSelectionService userMigrationSelectionService,
         IOrganisationMigrationSelectionService organisationMigrationSelectionService,
-        IProfessionalBodyExtractor professionalBodyExtractor,
-        IProfessionalBodyMappingRepository professionalBodyMappingRepository,
-        IProfessionalBodyTransformer professionalBodyTransformer,
-        IStagingRepository stagingRepository,
-        IUserExtractor userExtractor,
-        IUserTransformer userTransformer,
-        IUserEmploymentExtractor userEmploymentExtractor,
-        IUserEmploymentTransformer userEmploymentTransformer,
-        IUserAdminLocationExtractor userAdminLocationExtractor,
-        IUserAdminLocationTransformer userAdminLocationTransformer,
-        IUserGroupReporterExtractor userGroupReporterExtractor,
-        IUserGroupReporterTransformer userGroupReporterTransformer,
-        IOrganisationExtractor organisationExtractor,
-        ISupportingLookupExtractor supportingLookupExtractor,
-        IOrganisationTransformer organisationTransformer,
-        IOrganisationTypeTransformer organisationTypeTransformer,
+
+        ILegacyRepository legacyRepository,
+        ILearningHubRepository learningHubRepository,
         IOrganisationTypeMappingRepository organisationTypeMappingRepository,
+        IProfessionalBodyMappingRepository professionalBodyMappingRepository,
+        IStagingRepository stagingRepository,
+        IStaffGroupJobRoleTypeMappingRepository staffGroupJobRoleTypeMappingRepository,
         IOptions<MigrationOptions> migrationOptions)
     {
-        _learningHubRepository = learningHubRepository;
-        _legacyRepository = legacyRepository;
+        
+       
+        _professionalBodyExtractor = professionalBodyExtractor;
+        _userExtractor = userExtractor;
+        _userEmploymentExtractor = userEmploymentExtractor;
+        _userAdminLocationExtractor = userAdminLocationExtractor;
+        _userGroupReporterExtractor = userGroupReporterExtractor;
+        _organisationExtractor = organisationExtractor;
+        _supportingLookupExtractor = supportingLookupExtractor;
+
+        _userTransformer = userTransformer;
+        _organisationTransformer = organisationTransformer;
+        _organisationTypeTransformer = organisationTypeTransformer;
+        _userGroupReporterTransformer = userGroupReporterTransformer;
+        _userEmploymentTransformer = userEmploymentTransformer;
+        _userAdminLocationTransformer = userAdminLocationTransformer;
+        _professionalBodyTransformer = professionalBodyTransformer;
+        _userOrganisationTransformer = userOrganisationTransformer;
+        _userRoleTransformer = userRoleTransformer;
+        _userGroupRoleTransformer = userGroupRoleTransformer;
+
         _migrationLogger = migrationLogger;
         _userMigrationSelectionService = userMigrationSelectionService;
         _organisationMigrationSelectionService = organisationMigrationSelectionService;
-        _professionalBodyExtractor = professionalBodyExtractor;
-        _professionalBodyMappingRepository = professionalBodyMappingRepository;
-        _professionalBodyTransformer = professionalBodyTransformer;
-        _stagingRepository = stagingRepository;
-        _userExtractor = userExtractor;
-        _userTransformer = userTransformer;
-        _userEmploymentExtractor = userEmploymentExtractor;
-        _userEmploymentTransformer = userEmploymentTransformer;
-        _userAdminLocationExtractor = userAdminLocationExtractor;
-        _userAdminLocationTransformer = userAdminLocationTransformer;
-        _userGroupReporterExtractor = userGroupReporterExtractor;
-        _userGroupReporterTransformer = userGroupReporterTransformer;
-        _organisationExtractor = organisationExtractor;
-        _supportingLookupExtractor = supportingLookupExtractor;
-        _organisationTransformer = organisationTransformer;
-        _organisationTypeTransformer = organisationTypeTransformer;
+
         _organisationTypeMappingRepository = organisationTypeMappingRepository;
+        _learningHubRepository = learningHubRepository;
+        _legacyRepository = legacyRepository;
+        _professionalBodyMappingRepository = professionalBodyMappingRepository;
+        _stagingRepository = stagingRepository;
+        _staffGroupJobRoleTypeMappingRepository = staffGroupJobRoleTypeMappingRepository;
+
         _batchSize = migrationOptions.Value.BatchSize;
         if (_batchSize <= 0)
         {
@@ -710,6 +738,56 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
             // ==================================================
+            // Step 10 - Transform and stage User Organisations
+            // ==================================================
+
+            var userOrganisationStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage User Organisations");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userOrganisationStepId,
+                    "Information",
+                    "UserOrganisationTransformer",
+                    "Starting User Organisation extraction, transformation and staging.");
+
+                var statistics =
+                    await TransformAndStageUserOrganisationsAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    userOrganisationStepId,
+                    statistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userOrganisationStepId,
+                    "Information",
+                    "UserOrganisationTransformer",
+                    "User Organisation transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userOrganisationStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userOrganisationStepId,
+                    "Error",
+                    "UserOrganisationTransformer",
+                    "User Organisation transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+            // ==================================================
             // Migration completed
             // ==================================================
 
@@ -887,7 +965,7 @@ TransformAndStageUsersAsync(
 
                 transformedUsers.Add(transformed);
 
-                if (transformed.IsRemoved)
+                if (transformed.RemoveDate.HasValue)
                 {
                     statistics.RecordsRemoved++;
                 }
@@ -1286,41 +1364,306 @@ TransformAndStageOrganisationsAsync(
         return statistics;
     }
     private async Task<MigrationStatistics>
-TransformAndStageUserOrganisationsAsync(
-    Guid migrationRunId,
-    CancellationToken cancellationToken)
+    TransformAndStageUserOrganisationsAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
-        // TODO:
-        // Implement source query according to the
-        // UserOrganisations staging-table seeding notes.
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        var mappings =
+            await _staffGroupJobRoleTypeMappingRepository
+                .GetMappingsAsync(
+                    cancellationToken);
+
+        var mappingDictionary =
+            mappings
+                .Where(x =>
+                    x.IsMapped &&
+                    x.JobRoleTypeId.HasValue)
+                .GroupBy(x => x.LegacyStaffGroupId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.First());
+
+        foreach (var userBatch in userIds.Chunk(_batchSize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var transformedRecords =
+                new List<TransformedUserOrganisation>();
+
+            var employments =
+                _userEmploymentExtractor.ExtractAsync(
+                    userBatch,
+                    cancellationToken);
+
+            await foreach (
+                var employment in employments
+                    .WithCancellation(cancellationToken))
+            {
+                statistics.RecordsRead++;
+
+                if (!employment.LocationId.HasValue)
+                {
+                    statistics.RecordsSkipped++;
+                    continue;
+                }
+
+                if (!employment.JobRoleId.HasValue)
+                {
+                    statistics.RecordsSkipped++;
+                    continue;
+                }
+
+                if (!mappingDictionary.TryGetValue(
+                        employment.JobRoleId.Value,
+                        out var mapping))
+                {
+                    statistics.RecordsSkipped++;
+                    statistics.RecordsUnmapped++;
+                    continue;
+                }
+
+                if (!mapping.JobRoleTypeId.HasValue)
+                {
+                    statistics.RecordsSkipped++;
+                    statistics.RecordsUnmapped++;
+                    continue;
+                }
+
+                var createDate =
+                    employment.StartDate.HasValue
+                        ? new DateTimeOffset(
+                            employment.StartDate.Value,
+                            TimeSpan.Zero)
+                        : DateTimeOffset.UtcNow;
+
+                DateTimeOffset? amendDate =
+                        employment.AmendDate.HasValue
+                            ? new DateTimeOffset(
+                                employment.AmendDate.Value,
+                                TimeSpan.Zero)
+                            : null;
+
+                var transformed =
+                    _userOrganisationTransformer.Transform(
+                        elfhUserId: employment.UserId,
+                        elfhLocationId: employment.LocationId.Value,
+                        userId: employment.UserId,
+                        organisationId: employment.LocationId.Value,
+                        jobRoleTypeId: mapping.JobRoleTypeId.Value,
+                        jobRole: mapping.JobRoleType,
+                        startDate: employment.StartDate.HasValue
+                            ? new DateTimeOffset(
+                                employment.StartDate.Value,
+                                TimeSpan.Zero)
+                            : null,
+                        endDate: employment.EndDate.HasValue
+                            ? new DateTimeOffset(
+                                employment.EndDate.Value,
+                                TimeSpan.Zero)
+                            : null,
+                        createDate: createDate,
+                        createUserId: null,
+                        amendDate: amendDate,
+                        amendUserId: employment.AmendUserId,
+                        removeDate: employment.Deleted
+                            ? amendDate
+                            : null,
+                        removeUserId: employment.Deleted
+                            ? employment.AmendUserId
+                            : null,
+                        migrationRunId: migrationRunId);
+
+                transformedRecords.Add(transformed);
+
+                if (employment.Deleted)
+                {
+                    statistics.RecordsRemoved++;
+                }
+            }
+
+            if (transformedRecords.Count == 0)
+            {
+                continue;
+            }
+
+            await _stagingRepository.InsertUserOrganisationsAsync(
+                transformedRecords,
+                cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
+        }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-TransformAndStageUserRolesAsync(
-    Guid migrationRunId,
-    CancellationToken cancellationToken)
+    TransformAndStageUserRolesAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
-        // TODO:
-        // Implement UserAdminLocation -> Learning Hub Role
-        // mapping according to the staging notes.
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        //var roles =
+        //    await _learningHubRepository
+        //        .GetRolesAsync(
+        //            cancellationToken);
+
+        // Resolve the role required by the
+        // UserAdminLocation seeding rule here.
+        //
+        // Do NOT hard-code a RoleId until the
+        // seeding notes/schema confirms it.
+
+        foreach (var userBatch in userIds.Chunk(_batchSize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var transformedRecords =
+                new List<TransformedUserRole>();
+
+            var adminLocations =
+                _userAdminLocationExtractor.ExtractAsync(
+                    userBatch,
+                    cancellationToken);
+
+            await foreach (
+                var adminLocation in adminLocations
+                    .WithCancellation(cancellationToken))
+            {
+                statistics.RecordsRead++;
+
+                if (!adminLocation.AdminLocationId.HasValue)
+                {
+                    statistics.RecordsSkipped++;
+                    continue;
+                }
+
+                // Resolve role according to the staging notes.
+                //var roleId = ResolveUserRole(
+                //    adminLocation,
+                //    roles);
+
+                //if (!roleId.HasValue)
+                //{
+                //    statistics.RecordsSkipped++;
+                //    continue;
+                //}
+
+                //var transformed =
+                //    _userRoleTransformer.Transform(
+                //        adminLocation.UserId,
+                //        adminLocation.AdminLocationId,
+                //        roleId.Value,
+                //        adminLocation.Deleted,
+                //        migrationRunId);
+
+                //transformedRecords.Add(transformed);
+
+                //if (transformed.IsRemoved)
+                //{
+                //    statistics.RecordsRemoved++;
+                //}
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository.InsertUserRolesAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
+            }
+        }
 
         return statistics;
     }
     private async Task<MigrationStatistics>
-TransformAndStageUserGroupRolesAsync(
-    Guid migrationRunId,
-    CancellationToken cancellationToken)
+    TransformAndStageUserGroupRolesAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
-        // TODO:
-        // Implement UserGroupReporter -> UserGroupRole
-        // mapping according to the staging notes.
+        var userIds =
+            await _learningHubRepository
+                .GetUserIdsToMigrateAsync(
+                    cancellationToken);
+
+        //var roles =
+        //    await _learningHubRepository
+        //        .GetRolesAsync(
+        //            cancellationToken);
+
+        foreach (var userBatch in userIds.Chunk(_batchSize))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var transformedRecords =
+                new List<TransformedUserGroupRole>();
+
+            var reporters =
+                _userGroupReporterExtractor.ExtractAsync(
+                    userBatch,
+                    cancellationToken);
+
+            await foreach (
+                var reporter in reporters
+                    .WithCancellation(cancellationToken))
+            {
+                statistics.RecordsRead++;
+
+                //var roleId =
+                //    ResolveUserGroupRole(
+                //        reporter,
+                //        roles);
+
+                //if (!roleId.HasValue)
+                //{
+                //    statistics.RecordsSkipped++;
+                //    continue;
+                //}
+
+                //var transformed =
+                //    _userGroupRoleTransformer.Transform(
+                //        reporter.UserId,
+                //        reporter.UserGroupId,
+                //        reporter.UserGroupReporterId,
+                //        roleId.Value,
+                //        reporter.Deleted,
+                //        migrationRunId);
+
+                //transformedRecords.Add(transformed);
+
+                //if (transformed.IsRemoved)
+                //{
+                //    statistics.RecordsRemoved++;
+                //}
+            }
+
+            if (transformedRecords.Count > 0)
+            {
+                await _stagingRepository
+                    .InsertUserGroupRolesAsync(
+                        transformedRecords,
+                        cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
+            }
+        }
 
         return statistics;
     }

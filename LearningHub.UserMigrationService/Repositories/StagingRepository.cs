@@ -40,8 +40,8 @@ public class StagingRepository : IStagingRepository
     }
 
     public async Task InsertUsersAsync(
-        IReadOnlyCollection<TransformedUser> users,
-        CancellationToken cancellationToken = default)
+    IReadOnlyCollection<TransformedUser> users,
+    CancellationToken cancellationToken = default)
     {
         if (users.Count == 0)
             return;
@@ -49,54 +49,70 @@ public class StagingRepository : IStagingRepository
         var table = new DataTable();
 
         table.Columns.Add("MigrationRunId", typeof(Guid));
-        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("ElfhUserId", typeof(int));
+        table.Columns.Add("UserId", typeof(int));
         table.Columns.Add("FirstName", typeof(string));
         table.Columns.Add("LastName", typeof(string));
         table.Columns.Add("EmailAddress", typeof(string));
-        table.Columns.Add("AltEmailAddress", typeof(string));
-        table.Columns.Add("UserName", typeof(string));
-        table.Columns.Add("RegistrationCode", typeof(string));
-        table.Columns.Add("IsActive", typeof(bool));
-        table.Columns.Add("IsRemoved", typeof(bool));
+        table.Columns.Add("RecoveryEmailAddress", typeof(string));
+        table.Columns.Add("ElfhUserName", typeof(string));
+        table.Columns.Add("ProfessionalBodyId", typeof(int));
+        table.Columns.Add("ProfessionalRegistrationNumber", typeof(string));
+        table.Columns.Add("Active", typeof(bool));
         table.Columns.Add("PasswordHash", typeof(string));
-        table.Columns.Add("MustChangeNextLogin", typeof(bool));
+        table.Columns.Add("MustChangePassword", typeof(bool));
         table.Columns.Add("PasswordLifeCounter", typeof(int));
+        table.Columns.Add("SecurityLifeCounter", typeof(int));
         table.Columns.Add("RemoteLoginKey", typeof(string));
         table.Columns.Add("RemoteLoginGuid", typeof(Guid));
         table.Columns.Add("RemoteLoginStart", typeof(DateTimeOffset));
-        table.Columns.Add("RestrictToSso", typeof(bool));
+        table.Columns.Add("RestrictToSSO", typeof(bool));
+        table.Columns.Add("RequestUserLogout", typeof(bool));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+        table.Columns.Add("CreateUserId", typeof(int));
+        table.Columns.Add("AmendDate", typeof(DateTimeOffset));
+        table.Columns.Add("AmendUserId", typeof(int));
+        table.Columns.Add("RemoveDate", typeof(DateTimeOffset));
+        table.Columns.Add("RemoveUserId", typeof(int));
+        table.Columns.Add("RemovalMethodId", typeof(int));
         table.Columns.Add("CreatedUtc", typeof(DateTimeOffset));
-        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
-        table.Columns.Add("LegacyAmendUserId", typeof(int));
 
         foreach (var user in users)
         {
             table.Rows.Add(
                 user.MigrationRunId,
-                user.LegacyUserId,
+                user.ElfhUserId,
+                user.UserId,
                 DbValue(user.FirstName),
                 DbValue(user.LastName),
                 DbValue(user.EmailAddress),
-                DbValue(user.AltEmailAddress),
-                DbValue(user.UserName),
-                DbValue(user.RegistrationCode),
-                user.IsActive,
-                user.IsRemoved,
+                DbValue(user.RecoveryEmailAddress),
+                user.ElfhUserName,
+                DbValue(user.ProfessionalBodyId),
+                DbValue(user.ProfessionalRegistrationNumber),
+                DbValue(user.Active),
                 DbValue(user.PasswordHash),
-                user.MustChangeNextLogin,
+                DbValue(user.MustChangePassword),
                 DbValue(user.PasswordLifeCounter),
+                DbValue(user.SecurityLifeCounter),
                 DbValue(user.RemoteLoginKey),
                 DbValue(user.RemoteLoginGuid),
                 DbValue(user.RemoteLoginStart),
-                user.RestrictToSso,
-                DbValue(user.CreatedUtc),
-                DbValue(user.UpdatedUtc),
-                DbValue(user.LegacyAmendUserId));
+                DbValue(user.RestrictToSSO),
+                DbValue(user.RequestUserLogout),
+                user.CreateDate,
+                DbValue(user.CreateUserId),
+                DbValue(user.AmendDate),
+                DbValue(user.AmendUserId),
+                DbValue(user.RemoveDate),
+                DbValue(user.RemoveUserId),
+                DbValue(user.RemovalMethodId),
+                user.CreatedUtc);
         }
 
         await BulkInsertAsync(
             table,
-            "[migrations].[User]",
+            "[migrations].[Users]",
             cancellationToken);
     }
 
@@ -248,7 +264,7 @@ public class StagingRepository : IStagingRepository
 
         await BulkInsertAsync(
             table,
-            "[migrations].[Organisation]",
+            "[migrations].[Organisations]",
             cancellationToken);
     }
 
@@ -340,39 +356,45 @@ public class StagingRepository : IStagingRepository
 
         var table = new DataTable();
 
-        table.Columns.Add(
-            "MigrationRunId",
-            typeof(Guid));
-
-        table.Columns.Add(
-            "LegacyUserId",
-            typeof(int));
-
-        table.Columns.Add(
-            "LegacyOrganisationId",
-            typeof(int));
-
-        table.Columns.Add(
-            "LegacyUserEmploymentId",
-            typeof(int));
-
-        table.Columns.Add(
-            "IsRemoved",
-            typeof(bool));
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("ElfhUserId", typeof(int));
+        table.Columns.Add("ElfhLocationId", typeof(int));
+        table.Columns.Add("UserId", typeof(int));
+        table.Columns.Add("OrganisationId", typeof(int));
+        table.Columns.Add("JobRoleTypeId", typeof(int));
+        table.Columns.Add("JobRole", typeof(string));
+        table.Columns.Add("StartDate", typeof(DateTimeOffset));
+        table.Columns.Add("EndDate", typeof(DateTimeOffset));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+        table.Columns.Add("CreateUserId", typeof(int));
+        table.Columns.Add("AmendDate", typeof(DateTimeOffset));
+        table.Columns.Add("AmendUserId", typeof(int));
+        table.Columns.Add("RemoveDate", typeof(DateTimeOffset));
+        table.Columns.Add("RemoveUserId", typeof(int));
 
         foreach (var record in userOrganisations)
         {
             table.Rows.Add(
                 record.MigrationRunId,
-                record.LegacyUserId,
-                record.LegacyOrganisationId,
-                DbValue(record.LegacyUserEmploymentId),
-                record.IsRemoved);
+                record.ElfhUserId,
+                record.ElfhLocationId,
+                record.UserId,
+                record.OrganisationId,
+                record.JobRoleTypeId,
+                DbValue(record.JobRole),
+                DbValue(record.StartDate),
+                DbValue(record.EndDate),
+                record.CreateDate,
+                DbValue(record.CreateUserId),
+                DbValue(record.AmendDate),
+                DbValue(record.AmendUserId),
+                DbValue(record.RemoveDate),
+                DbValue(record.RemoveUserId));
         }
 
         await BulkInsertAsync(
             table,
-            "[migrations].[UserOrganisation]",
+            "[migrations].[UserOrganisations]",
             cancellationToken);
     }
     public async Task InsertUserRolesAsync(

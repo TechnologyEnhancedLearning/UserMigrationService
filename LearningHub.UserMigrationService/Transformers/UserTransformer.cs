@@ -12,52 +12,84 @@ public class UserTransformer : IUserTransformer
     {
         ArgumentNullException.ThrowIfNull(source);
 
+        var createDate =
+            TransformationValueHelper.ToUtc(source.CreatedDate)
+            ?? DateTimeOffset.UtcNow;
+
+        var amendDate =
+            TransformationValueHelper.ToUtc(source.AmendDate);
+
         return new TransformedUser
         {
             MigrationRunId = migrationRunId,
 
-            // Legacy identity
-            LegacyUserId = source.UserId,
+            ElfhUserId = source.UserId,
 
-            // User details
-            FirstName = Normalize(source.FirstName),
-            LastName = Normalize(source.LastName),
-            EmailAddress = Normalize(source.EmailAddress),
-            AltEmailAddress = Normalize(source.AltEmailAddress),
-            UserName = Normalize(source.UserName),
-            RegistrationCode = Normalize(source.RegistrationCode),
+            UserId = source.UserId,
 
-            // Account state
-            IsActive = source.Active,
-            IsRemoved = source.Deleted,
+            FirstName =
+                TransformationValueHelper.NormalizeString(
+                    source.FirstName),
 
-            // Authentication
+            LastName =
+                TransformationValueHelper.NormalizeString(
+                    source.LastName),
+
+            EmailAddress =
+                TransformationValueHelper.NormalizeString(
+                    source.EmailAddress),
+
+            RecoveryEmailAddress = null,
+
+            ElfhUserName =
+                TransformationValueHelper.NormalizeString(
+                    source.UserName) ?? string.Empty,
+
+            ProfessionalBodyId = null,
+
+            ProfessionalRegistrationNumber = null,
+
+            Active = source.Active,
+
             PasswordHash = source.PasswordHash,
-            MustChangeNextLogin = source.MustChangeNextLogin,
+
+            MustChangePassword = source.MustChangeNextLogin,
+
             PasswordLifeCounter = source.PasswordLifeCounter,
 
+            SecurityLifeCounter = null,
+
             RemoteLoginKey = source.RemoteLoginKey,
+
             RemoteLoginGuid = source.RemoteLoginGuid,
-            RemoteLoginStart = TransformationValueHelper.ToUtc(
-                source.RemoteLoginStart),
 
-            RestrictToSso = source.RestrictToSSO,
+            RemoteLoginStart =
+                TransformationValueHelper.ToUtc(
+                    source.RemoteLoginStart),
 
-            // Audit
-            CreatedUtc = TransformationValueHelper.ToUtc(
-                source.CreatedDate),
+            RestrictToSSO = source.RestrictToSSO,
 
-            UpdatedUtc = TransformationValueHelper.ToUtc(
-                source.AmendDate),
+            RequestUserLogout = null,
 
-            LegacyAmendUserId = source.AmendUserId
+            CreateDate = createDate,
+
+            CreateUserId = null,
+
+            AmendDate = amendDate,
+
+            AmendUserId = source.AmendUserId,
+
+            RemoveDate = source.Deleted
+                ? amendDate
+                : null,
+
+            RemoveUserId = source.Deleted
+                ? source.AmendUserId
+                : null,
+
+            RemovalMethodId = null,
+
+            CreatedUtc = DateTimeOffset.UtcNow
         };
-    }
-
-    private static string? Normalize(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
     }
 }

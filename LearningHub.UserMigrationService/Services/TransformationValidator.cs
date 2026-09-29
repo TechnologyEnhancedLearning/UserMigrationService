@@ -9,17 +9,23 @@ public static class TransformationValidator
     {
         var errors = new List<string>();
 
-        if (user.LegacyUserId <= 0)
+        if (user.ElfhUserId <= 0)
         {
             errors.Add(
-                "LegacyUserId must be greater than zero.");
+                "ElfhUserId must be greater than zero.");
+        }
+
+        if (user.UserId <= 0)
+        {
+            errors.Add(
+                "UserId must be greater than zero.");
         }
 
         if (string.IsNullOrWhiteSpace(user.EmailAddress) &&
-            string.IsNullOrWhiteSpace(user.UserName))
+            string.IsNullOrWhiteSpace(user.ElfhUserName))
         {
             errors.Add(
-                "User must have either EmailAddress or UserName.");
+                "User must have either EmailAddress or ElfhUserName.");
         }
 
         return errors;

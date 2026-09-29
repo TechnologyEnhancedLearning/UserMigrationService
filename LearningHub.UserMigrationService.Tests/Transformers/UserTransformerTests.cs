@@ -44,7 +44,11 @@ public class UserTransformerTests
 
         Assert.Equal(
             123,
-            result.LegacyUserId);
+            result.ElfhUserId);
+
+        Assert.Equal(
+            123,
+            result.UserId);
 
         Assert.Equal(
             "John",
@@ -58,18 +62,25 @@ public class UserTransformerTests
             "john.smith@test.com",
             result.EmailAddress);
 
-        Assert.True(result.IsActive);
-        Assert.False(result.IsRemoved);
+        Assert.Equal(
+            "jsmith",
+            result.ElfhUserName);
 
         Assert.True(
-            result.MustChangeNextLogin);
+            result.Active == true);
+
+        Assert.False(
+            result.RemoveDate.HasValue);
 
         Assert.True(
-            result.RestrictToSso);
+            result.MustChangePassword == true);
+
+        Assert.True(
+            result.RestrictToSSO == true);
 
         Assert.Equal(
             99,
-            result.LegacyAmendUserId);
+            result.AmendUserId);
     }
 
     [Fact]
@@ -78,7 +89,9 @@ public class UserTransformerTests
         var source = new ElfhUser
         {
             UserId = 123,
-            Deleted = true
+            Deleted = true,
+            AmendDate = new DateTime(2025, 2, 1),
+            AmendUserId = 99
         };
 
         var transformer = new UserTransformer();
@@ -88,6 +101,11 @@ public class UserTransformerTests
                 source,
                 Guid.NewGuid());
 
-        Assert.True(result.IsRemoved);
+        Assert.True(
+            result.RemoveDate.HasValue);
+
+        Assert.Equal(
+            99,
+            result.RemoveUserId);
     }
 }

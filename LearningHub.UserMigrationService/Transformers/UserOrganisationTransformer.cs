@@ -7,23 +7,46 @@ public class UserOrganisationTransformer
     : IUserOrganisationTransformer
 {
     public TransformedUserOrganisation Transform(
-        int legacyUserId,
-        int legacyOrganisationId,
-        int? legacyUserEmploymentId,
-        bool isRemoved,
+        int elfhUserId,
+        int elfhLocationId,
+        int userId,
+        int organisationId,
+        int jobRoleTypeId,
+        string? jobRole,
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        DateTimeOffset createDate,
+        int? createUserId,
+        DateTimeOffset? amendDate,
+        int? amendUserId,
+        DateTimeOffset? removeDate,
+        int? removeUserId,
         Guid migrationRunId)
     {
         return new TransformedUserOrganisation
         {
             MigrationRunId = migrationRunId,
 
-            LegacyUserId = legacyUserId,
+            ElfhUserId = elfhUserId,
+            ElfhLocationId = elfhLocationId,
 
-            LegacyOrganisationId = legacyOrganisationId,
+            UserId = userId,
+            OrganisationId = organisationId,
 
-            LegacyUserEmploymentId = legacyUserEmploymentId,
+            JobRoleTypeId = jobRoleTypeId,
+            JobRole = jobRole,
 
-            IsRemoved = isRemoved
+            StartDate = startDate,
+            EndDate = endDate,
+
+            CreateDate = createDate,
+            CreateUserId = createUserId,
+
+            AmendDate = amendDate,
+            AmendUserId = amendUserId,
+
+            RemoveDate = removeDate,
+            RemoveUserId = removeUserId
         };
     }
 }

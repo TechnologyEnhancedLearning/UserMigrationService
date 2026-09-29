@@ -71,13 +71,7 @@ builder.Logging.AddConsole();
 
 builder.Services.AddScoped<IMigrationPipeline, MigrationPipeline>();
 
-builder.Services.AddScoped<ILegacyRepository, LegacyRepository>();
-
-builder.Services.AddScoped<ILearningHubRepository, LearningHubRepository>();
-
 builder.Services.AddScoped<IMigrationLogger, MigrationLogger>();
-
-builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
 
 builder.Services.AddScoped<IUserMigrationSelectionService,UserMigrationSelectionService>();
 builder.Services.AddScoped<IOrganisationMigrationSelectionService,OrganisationMigrationSelectionService>();
@@ -101,10 +95,13 @@ builder.Services.AddScoped<IUserOrganisationTransformer,UserOrganisationTransfor
 builder.Services.AddScoped<IUserRoleTransformer,UserRoleTransformer>();
 builder.Services.AddScoped<IUserGroupRoleTransformer,UserGroupRoleTransformer>();
 
-
+builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
+builder.Services.AddScoped<ILegacyRepository, LegacyRepository>();
+builder.Services.AddScoped<ILearningHubRepository, LearningHubRepository>();
 builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMappingRepository>();
 builder.Services.AddScoped<IOrganisationTypeMappingRepository,OrganisationTypeMappingRepository>();
 builder.Services.AddScoped<IStagingRepository,StagingRepository>();
+builder.Services.AddScoped<IStaffGroupJobRoleTypeMappingRepository,StaffGroupJobRoleTypeMappingRepository>();
 
 builder.Services.AddHostedService<MigrationWorker>();
 
