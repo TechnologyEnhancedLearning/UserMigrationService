@@ -246,5 +246,50 @@ namespace LearningHub.UserMigrationService.Repositories
                 .Select(x => x.LocationId)
                 .ToListAsync(cancellationToken);
         }
+        public async Task<List<RoleReference>> GetRolesAsync( CancellationToken cancellationToken)
+        {
+            const string sql = """
+            SELECT
+                Id,
+                Name
+            FROM hub.Role
+            WHERE IsDeleted = 0;
+            """;
+
+                var roles = new List<RoleReference>();
+
+                using var connection =
+                    new SqlConnection(_connectionString);
+
+                await connection.OpenAsync(cancellationToken);
+
+                using var command =
+                    new SqlCommand(sql, connection);
+
+                using var reader =
+                    await command.ExecuteReaderAsync(cancellationToken);
+
+                var idOrdinal =
+                    reader.GetOrdinal("Id");
+
+                var nameOrdinal =
+                    reader.GetOrdinal("Name");
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    roles.Add(
+                        new RoleReference
+                        {
+                            Id = reader.GetInt32(idOrdinal),
+
+                            Name =
+                                reader.IsDBNull(nameOrdinal)
+                                    ? string.Empty
+                                    : reader.GetString(nameOrdinal)
+                        });
+                }
+
+            return roles;
+        }
     }
 }

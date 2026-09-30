@@ -1508,23 +1508,22 @@ TransformAndStageOrganisationsAsync(
         Guid migrationRunId,
         CancellationToken cancellationToken)
     {
-        var statistics = new MigrationStatistics();
+        var statistics =
+            new MigrationStatistics();
 
         var userIds =
             await _learningHubRepository
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        //var roles =
-        //    await _learningHubRepository
-        //        .GetRolesAsync(
-        //            cancellationToken);
+        var roles =
+            await _learningHubRepository
+                .GetRolesAsync(
+                    cancellationToken);
 
-        // Resolve the role required by the
-        // UserAdminLocation seeding rule here.
-        //
-        // Do NOT hard-code a RoleId until the
-        // seeding notes/schema confirms it.
+        var roleId =
+            RoleResolver.ResolveUserAdminLocationRole(
+                roles);
 
         foreach (var userBatch in userIds.Chunk(_batchSize))
         {
@@ -1550,42 +1549,34 @@ TransformAndStageOrganisationsAsync(
                     continue;
                 }
 
-                // Resolve role according to the staging notes.
-                //var roleId = ResolveUserRole(
-                //    adminLocation,
-                //    roles);
+                var transformed =
+                    _userRoleTransformer.Transform(
+                        adminLocation.UserId,
+                        adminLocation.AdminLocationId,
+                        roleId,
+                        adminLocation.Deleted,
+                        migrationRunId);
 
-                //if (!roleId.HasValue)
-                //{
-                //    statistics.RecordsSkipped++;
-                //    continue;
-                //}
+                transformedRecords.Add(
+                    transformed);
 
-                //var transformed =
-                //    _userRoleTransformer.Transform(
-                //        adminLocation.UserId,
-                //        adminLocation.AdminLocationId,
-                //        roleId.Value,
-                //        adminLocation.Deleted,
-                //        migrationRunId);
-
-                //transformedRecords.Add(transformed);
-
-                //if (transformed.IsRemoved)
-                //{
-                //    statistics.RecordsRemoved++;
-                //}
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
             }
 
-            if (transformedRecords.Count > 0)
+            if (transformedRecords.Count == 0)
             {
-                await _stagingRepository.InsertUserRolesAsync(
-                    transformedRecords,
-                    cancellationToken);
-
-                statistics.RecordsWritten +=
-                    transformedRecords.Count;
+                continue;
             }
+
+            await _stagingRepository.InsertUserRolesAsync(
+                transformedRecords,
+                cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
         }
 
         return statistics;
@@ -1595,17 +1586,22 @@ TransformAndStageOrganisationsAsync(
         Guid migrationRunId,
         CancellationToken cancellationToken)
     {
-        var statistics = new MigrationStatistics();
+        var statistics =
+            new MigrationStatistics();
 
         var userIds =
             await _learningHubRepository
                 .GetUserIdsToMigrateAsync(
                     cancellationToken);
 
-        //var roles =
-        //    await _learningHubRepository
-        //        .GetRolesAsync(
-        //            cancellationToken);
+        var roles =
+            await _learningHubRepository
+                .GetRolesAsync(
+                    cancellationToken);
+
+        var roleId =
+            RoleResolver.ResolveUserGroupReporterRole(
+                roles);
 
         foreach (var userBatch in userIds.Chunk(_batchSize))
         {
@@ -1625,44 +1621,36 @@ TransformAndStageOrganisationsAsync(
             {
                 statistics.RecordsRead++;
 
-                //var roleId =
-                //    ResolveUserGroupRole(
-                //        reporter,
-                //        roles);
+                var transformed =
+                    _userGroupRoleTransformer.Transform(
+                        reporter.UserId,
+                        reporter.UserGroupId,
+                        reporter.UserGroupReporterId,
+                        roleId,
+                        reporter.Deleted,
+                        migrationRunId);
 
-                //if (!roleId.HasValue)
-                //{
-                //    statistics.RecordsSkipped++;
-                //    continue;
-                //}
+                transformedRecords.Add(
+                    transformed);
 
-                //var transformed =
-                //    _userGroupRoleTransformer.Transform(
-                //        reporter.UserId,
-                //        reporter.UserGroupId,
-                //        reporter.UserGroupReporterId,
-                //        roleId.Value,
-                //        reporter.Deleted,
-                //        migrationRunId);
-
-                //transformedRecords.Add(transformed);
-
-                //if (transformed.IsRemoved)
-                //{
-                //    statistics.RecordsRemoved++;
-                //}
+                if (transformed.IsRemoved)
+                {
+                    statistics.RecordsRemoved++;
+                }
             }
 
-            if (transformedRecords.Count > 0)
+            if (transformedRecords.Count == 0)
             {
-                await _stagingRepository
-                    .InsertUserGroupRolesAsync(
-                        transformedRecords,
-                        cancellationToken);
-
-                statistics.RecordsWritten +=
-                    transformedRecords.Count;
+                continue;
             }
+
+            await _stagingRepository
+                .InsertUserGroupRolesAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
         }
 
         return statistics;
