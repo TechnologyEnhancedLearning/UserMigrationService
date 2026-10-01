@@ -24,4 +24,5 @@ public class TransformedUserOrganisation
 
     public DateTimeOffset? RemoveDate { get; set; }
     public int? RemoveUserId { get; set; }
+    public DateTimeOffset? CreatedUtc { get; set; }
 }

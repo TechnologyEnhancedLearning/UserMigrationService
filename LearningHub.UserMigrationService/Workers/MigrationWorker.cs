@@ -7,12 +7,15 @@ public class MigrationWorker : BackgroundService
     private readonly ILogger<MigrationWorker> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
 
+    private readonly IHostApplicationLifetime  _applicationLifetime;
     public MigrationWorker(
         ILogger<MigrationWorker> logger,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IHostApplicationLifetime applicationLifetime)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _applicationLifetime =applicationLifetime;
     }
 
     protected override async Task ExecuteAsync(
@@ -20,16 +23,33 @@ public class MigrationWorker : BackgroundService
     {
         _logger.LogInformation("***** MIGRATION WORKER STARTED *****");
 
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
 
-        using var scope = _scopeFactory.CreateScope();
+            var pipeline = scope.ServiceProvider
+                    .GetRequiredService<IMigrationPipeline>();
 
-        var pipeline = scope.ServiceProvider
-            .GetRequiredService<IMigrationPipeline>();
+            await pipeline.ExecuteAsync(stoppingToken);
 
-        await pipeline.ExecuteAsync(stoppingToken);
+            _logger.LogInformation("***** MIGRATION WORKER COMPLETED *****");
 
-        _logger.LogInformation("***** MIGRATION WORKER COMPLETED *****");
+            await Task.CompletedTask;
+        }
+        catch (OperationCanceledException)
+            when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Migration worker cancelled.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,"Migration worker failed.");
 
-        await Task.CompletedTask;
+            throw;
+        }
+        finally
+        {
+            _applicationLifetime.StopApplication();
+        }
     }
 }

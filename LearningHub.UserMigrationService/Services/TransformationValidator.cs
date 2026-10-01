@@ -32,21 +32,46 @@ public static class TransformationValidator
     }
 
     public static IReadOnlyList<string> Validate(
-        TransformedOrganisation organisation)
+    TransformedUserOrganisation value)
     {
         var errors = new List<string>();
 
-        if (organisation.LegacyOrganisationId <= 0)
+        if (value.ElfhUserId <= 0)
         {
             errors.Add(
-                "LegacyOrganisationId must be greater than zero.");
+                "ElfhUserId must be greater than zero.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                organisation.LegacyOrganisationName))
+        if (value.ElfhLocationId <= 0)
         {
             errors.Add(
-                "Organisation name is required.");
+                "ElfhLocationId must be greater than zero.");
+        }
+
+        if (value.UserId <= 0)
+        {
+            errors.Add(
+                "UserId must be greater than zero.");
+        }
+
+        if (value.OrganisationId <= 0)
+        {
+            errors.Add(
+                "OrganisationId must be greater than zero.");
+        }
+
+        if (value.JobRoleTypeId <= 0)
+        {
+            errors.Add(
+                "JobRoleTypeId must be greater than zero.");
+        }
+
+        if (value.StartDate.HasValue &&
+            value.EndDate.HasValue &&
+            value.EndDate.Value < value.StartDate.Value)
+        {
+            errors.Add(
+                "EndDate cannot be earlier than StartDate.");
         }
 
         return errors;
@@ -89,6 +114,57 @@ public static class TransformationValidator
         {
             errors.Add(
                 "Organisation type name is required.");
+        }
+
+        return errors;
+    }
+    public static IReadOnlyList<string> Validate(
+    TransformedOrganisation value)
+    {
+        var errors = new List<string>();
+
+        if (value.ElfhLocationId <= 0)
+        {
+            errors.Add(
+                "ElfhLocationId must be greater than zero.");
+        }
+
+        if (value.OrganisationId <= 0)
+        {
+            errors.Add(
+                "OrganisationId must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(value.OrganisationName))
+        {
+            errors.Add(
+                "OrganisationName is required.");
+        }
+
+        if (value.OrganisationTypeId <= 0)
+        {
+            errors.Add(
+                "OrganisationTypeId must be greater than zero.");
+        }
+
+        if (value.CreateDate == default)
+        {
+            errors.Add(
+                "CreateDate is required.");
+        }
+
+        if (value.AmendDate.HasValue &&
+            value.AmendDate.Value < value.CreateDate)
+        {
+            errors.Add(
+                "AmendDate cannot be earlier than CreateDate.");
+        }
+
+        if (value.RemoveDate.HasValue &&
+            value.RemoveDate.Value < value.CreateDate)
+        {
+            errors.Add(
+                "RemoveDate cannot be earlier than CreateDate.");
         }
 
         return errors;

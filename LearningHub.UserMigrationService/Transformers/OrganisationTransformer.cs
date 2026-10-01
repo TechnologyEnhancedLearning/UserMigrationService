@@ -4,8 +4,7 @@ using LearningHub.UserMigrationService.Models.Transformation;
 
 namespace LearningHub.UserMigrationService.Transformers;
 
-public class OrganisationTransformer
-    : IOrganisationTransformer
+public class OrganisationTransformer : IOrganisationTransformer
 {
     public TransformedOrganisation Transform(
         ElfhOrganisation source,
@@ -14,58 +13,59 @@ public class OrganisationTransformer
     {
         ArgumentNullException.ThrowIfNull(source);
 
+        var createDate =
+            TransformationValueHelper.ToUtc(source.Created)
+            ?? DateTimeOffset.UtcNow;
+
+        var amendDate =
+            TransformationValueHelper.ToUtc(source.Updated);
+
         return new TransformedOrganisation
         {
             MigrationRunId = migrationRunId,
 
-            // Legacy identifiers
-            LegacyOrganisationId =
-                source.LocationId,
+            ElfhLocationId = source.LocationId,
 
-            LegacyOrganisationTypeId =
-                source.LocationTypeId,
+            OrganisationId = source.LocationId,
 
-            LegacyParentOrganisationId =
-                source.ParentId,
-
-            // Legacy values
-            LegacyOrganisationCode =
-                TransformationValueHelper.NormalizeString(
-                    source.LocationCode),
-
-            LegacyOrganisationName =
+            OrganisationName =
                 TransformationValueHelper.NormalizeString(
                     source.LocationName),
 
-            LegacyPostCode =
+            ODSCode =
+                TransformationValueHelper.NormalizeString(
+                    source.LocationCode),
+
+            PostCode =
                 TransformationValueHelper.NormalizeString(
                     source.PostCode),
 
-            // Organisation Type mapping
             OrganisationTypeId =
-                organisationTypeMapping?.OrganisationTypeId,
+                organisationTypeMapping?.OrganisationTypeId ?? 0,
 
-            OrganisationType =
-                TransformationValueHelper.NormalizeString(
-                    organisationTypeMapping?.OrganisationType),
+            RegionId = null,
 
-            // Derived region
-            Region =
-                OrganisationRegionResolver.Resolve(
-                    source.PostCode),
+            ParentId = source.ParentId,
 
-            // Audit fields
-            CreatedUtc =
-                TransformationValueHelper.ToUtc(
-                    source.Created),
+            CreateDate = createDate,
 
-            UpdatedUtc =
-                TransformationValueHelper.ToUtc(
-                    source.Updated),
+            CreateUserId = null,
 
-            // Removal status
-            IsRemoved =
+            AmendDate = amendDate,
+
+            AmendUserId = source.AmendUserId,
+
+            RemoveDate =
                 source.Deleted
+                    ? amendDate
+                    : null,
+
+            RemoveUserId =
+                source.Deleted
+                    ? source.AmendUserId
+                    : null,
+
+            CreatedUtc = DateTime.UtcNow
         };
     }
 }

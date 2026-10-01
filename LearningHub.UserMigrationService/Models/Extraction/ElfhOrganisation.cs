@@ -18,5 +18,7 @@ public class ElfhOrganisation
 
     public DateTime? Updated { get; set; }
 
+    public int? AmendUserId { get; set; }
+
     public bool Deleted { get; set; }
 }

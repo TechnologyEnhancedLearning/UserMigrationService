@@ -102,6 +102,7 @@ builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMa
 builder.Services.AddScoped<IOrganisationTypeMappingRepository,OrganisationTypeMappingRepository>();
 builder.Services.AddScoped<IStagingRepository,StagingRepository>();
 builder.Services.AddScoped<IStaffGroupJobRoleTypeMappingRepository,StaffGroupJobRoleTypeMappingRepository>();
+builder.Services.AddScoped<IValidationIssueRepository,ValidationIssueRepository>();
 
 builder.Services.AddHostedService<MigrationWorker>();
 

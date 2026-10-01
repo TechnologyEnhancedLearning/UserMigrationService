@@ -7,6 +7,7 @@ using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Services;
 using LearningHub.UserMigrationService.Transformers;
 using Microsoft.Extensions.Options;
+using System.Collections.Generic;
 
 namespace LearningHub.UserMigrationService.Pipeline;
 
@@ -43,6 +44,9 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IStagingRepository _stagingRepository;
     private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
     private readonly IStaffGroupJobRoleTypeMappingRepository _staffGroupJobRoleTypeMappingRepository;
+    private readonly IValidationIssueRepository _validationIssueRepository;
+
+    private readonly bool _enableValidation;
     private readonly int _batchSize;
 
     public MigrationPipeline(
@@ -76,6 +80,7 @@ public class MigrationPipeline : IMigrationPipeline
         IProfessionalBodyMappingRepository professionalBodyMappingRepository,
         IStagingRepository stagingRepository,
         IStaffGroupJobRoleTypeMappingRepository staffGroupJobRoleTypeMappingRepository,
+        IValidationIssueRepository validationIssueRepository,
         IOptions<MigrationOptions> migrationOptions)
     {
         
@@ -109,7 +114,9 @@ public class MigrationPipeline : IMigrationPipeline
         _professionalBodyMappingRepository = professionalBodyMappingRepository;
         _stagingRepository = stagingRepository;
         _staffGroupJobRoleTypeMappingRepository = staffGroupJobRoleTypeMappingRepository;
+        _validationIssueRepository = validationIssueRepository;
 
+        _enableValidation =migrationOptions.Value.EnableValidation;
         _batchSize = migrationOptions.Value.BatchSize;
         if (_batchSize <= 0)
         {
@@ -738,7 +745,7 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
             // ==================================================
-            // Step 10 - Transform and stage User Organisations
+            // Step 12 - Transform and stage User Organisations
             // ==================================================
 
             var userOrganisationStepId =
@@ -787,6 +794,67 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
+
+            // ==================================================
+            // Step 13 - Transform and stage User Roles
+            // ==================================================
+            var userRoleStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage User Roles");
+
+                        try
+                        {
+                            var statistics =
+                                await TransformAndStageUserRolesAsync(
+                                    migrationRunId,
+                                    cancellationToken);
+
+                            await _migrationLogger.CompleteStepAsync(
+                                userRoleStepId,
+                                statistics);
+                        }
+                        catch (Exception ex)
+                        {
+                            await _migrationLogger.FailStepAsync(
+                                userRoleStepId,
+                                ex);
+
+                            throw;
+                        }
+
+            // ==================================================
+            // Step 14 - Transform and stage User Group Roles
+            // ==================================================
+
+            var userGroupRoleStepId =
+                    await _migrationLogger.StartStepAsync(
+                        migrationRunId,
+                        "Transform and Stage User Group Roles");
+
+                                try
+                                {
+                                    var statistics =
+                                        await TransformAndStageUserGroupRolesAsync(
+                                            migrationRunId,
+                                            cancellationToken);
+
+                                    await _migrationLogger.CompleteStepAsync(
+                                        userGroupRoleStepId,
+                                        statistics);
+                                }
+                                catch (Exception ex)
+                                {
+                                    await _migrationLogger.FailStepAsync(
+                                        userGroupRoleStepId,
+                                        ex);
+
+                                    throw;
+                                }
+            // ==================================================
+            // Step 15 - Validation Summary
+            // ==================================================
+
             // ==================================================
             // Migration completed
             // ==================================================
@@ -861,12 +929,21 @@ public class MigrationPipeline : IMigrationPipeline
                     migrationRunId);
 
             var validationErrors =
-                TransformationValidator.Validate(
-                    transformed);
+    _enableValidation
+        ? TransformationValidator.Validate(
+            transformed)
+        : Array.Empty<string>();
 
             if (validationErrors.Count > 0)
             {
                 statistics.RecordsFailed++;
+
+                await RecordValidationIssuesAsync(
+                    migrationRunId,
+                    "migrations.ProfessionalBody",
+                    source.ProfessionalBodyId,
+                    validationErrors,
+                    cancellationToken);
 
                 foreach (var error in validationErrors)
                 {
@@ -943,13 +1020,20 @@ TransformAndStageUsersAsync(
                         migrationRunId);
 
                 var validationErrors =
-                    TransformationValidator.Validate(
-                        transformed);
+     _enableValidation
+         ? TransformationValidator.Validate(
+             transformed)
+         : Array.Empty<string>();
 
                 if (validationErrors.Count > 0)
                 {
                     statistics.RecordsFailed++;
-
+                    await RecordValidationIssuesAsync(
+                           migrationRunId,
+                           "migrations.UserTransformer",
+                           source.UserId,
+                           validationErrors,
+                           cancellationToken);
                     foreach (var error in validationErrors)
                     {
                         await _migrationLogger.LogAsync(
@@ -1212,12 +1296,20 @@ TransformAndStageOrganisationTypesAsync(
                     migrationRunId);
 
             var validationErrors =
-                TransformationValidator.Validate(
-                    transformed);
+                _enableValidation
+                    ? TransformationValidator.Validate(
+                        transformed)
+                    : Array.Empty<string>();
 
             if (validationErrors.Count > 0)
             {
                 statistics.RecordsFailed++;
+                await RecordValidationIssuesAsync(
+                       migrationRunId,
+                       "migrations.OrganisationType",
+                       source.Id,
+                       validationErrors,
+                       cancellationToken);
 
                 foreach (var error in validationErrors)
                 {
@@ -1320,13 +1412,20 @@ TransformAndStageOrganisationsAsync(
                         mapping,
                         migrationRunId);
 
-                var validationErrors =
-                    TransformationValidator.Validate(
-                        transformed);
+                IReadOnlyList<string> validationErrors =
+                    _enableValidation
+                        ? TransformationValidator.Validate(transformed)
+                        : Array.Empty<string>();
 
                 if (validationErrors.Count > 0)
                 {
                     statistics.RecordsFailed++;
+                    await RecordValidationIssuesAsync(
+                           migrationRunId,
+                           "migrations.Organisation",
+                           source.LocationId,
+                           validationErrors,
+                           cancellationToken);
 
                     foreach (var error in validationErrors)
                     {
@@ -1344,7 +1443,7 @@ TransformAndStageOrganisationsAsync(
 
                 transformedRecords.Add(transformed);
 
-                if (transformed.IsRemoved)
+                if (transformed.RemoveUserId.HasValue)
                 {
                     statistics.RecordsRemoved++;
                 }
@@ -1479,7 +1578,36 @@ TransformAndStageOrganisationsAsync(
                             ? employment.AmendUserId
                             : null,
                         migrationRunId: migrationRunId);
+                var validationErrors =
+                        _enableValidation
+                            ? TransformationValidator.Validate(
+                                transformed)
+                            : Array.Empty<string>();
 
+                                    if (validationErrors.Count > 0)
+                                    {
+                                        statistics.RecordsFailed++;
+
+                                        await RecordValidationIssuesAsync(
+                                            migrationRunId,
+                                            "migrations.UserOrganisations",
+                                            employment.UserEmploymentId,
+                                            validationErrors,
+                                            cancellationToken);
+
+                                        foreach (var error in validationErrors)
+                                        {
+                                            await _migrationLogger.LogAsync(
+                                                migrationRunId,
+                                                null,
+                                                "Warning",
+                                                "UserOrganisationTransformer",
+                                                $"Legacy User Employment " +
+                                                $"{employment.UserEmploymentId}: {error}");
+                                        }
+
+                                        continue;
+                                    }
                 transformedRecords.Add(transformed);
 
                 if (employment.Deleted)
@@ -1654,5 +1782,46 @@ TransformAndStageOrganisationsAsync(
         }
 
         return statistics;
+    }
+    private async Task RecordValidationIssuesAsync(
+    Guid migrationRunId,
+    string tableName,
+    int? elfhRecordId,
+    IReadOnlyList<string> errors,
+    CancellationToken cancellationToken)
+    {
+        if (!_enableValidation ||
+            errors.Count == 0)
+        {
+            return;
+        }
+
+        var issues =
+            errors.Select(
+                error => new ValidationIssue
+                {
+                    MigrationRunId = migrationRunId,
+
+                    TableName = tableName,
+
+                    StagingRecordId = null,
+
+                    ElfhRecordId = elfhRecordId,
+
+                    ValidationType = "Transformation",
+
+                    Severity = "Error",
+
+                    ColumnName = null,
+
+                    Message = error,
+
+                    CreatedUtc = DateTime.UtcNow
+                })
+            .ToList();
+
+        await _validationIssueRepository.InsertAsync(
+            issues,
+            cancellationToken);
     }
 }

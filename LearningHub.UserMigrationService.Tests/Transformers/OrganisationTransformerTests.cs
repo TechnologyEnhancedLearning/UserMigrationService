@@ -28,26 +28,40 @@ public class OrganisationTransformerTests
             IsMapped = true
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                mapping,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            mapping,
+            Guid.NewGuid());
 
         Assert.Equal(
             100,
-            result.LegacyOrganisationId);
+            result.ElfhLocationId);
 
         Assert.Equal(
-            5,
-            result.LegacyOrganisationTypeId);
+            100,
+            result.OrganisationId);
+
+        Assert.Equal(
+            25,
+            result.OrganisationTypeId);
 
         Assert.Equal(
             20,
-            result.LegacyParentOrganisationId);
+            result.ParentId);
+
+        Assert.Equal(
+            "ORG001",
+            result.ODSCode);
+
+        Assert.Equal(
+            "Test Organisation",
+            result.OrganisationName);
+
+        Assert.Equal(
+            "OX1 1AA",
+            result.PostCode);
     }
 
     [Fact]
@@ -69,135 +83,258 @@ public class OrganisationTransformerTests
             IsMapped = true
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                mapping,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            mapping,
+            Guid.NewGuid());
 
         Assert.Equal(
             25,
             result.OrganisationTypeId);
-
-        Assert.Equal(
-            "NHS Trust",
-            result.OrganisationType);
     }
 
     [Fact]
-    public void Transform_InfersEnglandFromPostcode()
+    public void Transform_UnmappedOrganisationType_UsesZero()
     {
         var source = new ElfhOrganisation
         {
             LocationId = 100,
-            PostCode = "OX1 1AA"
+            LocationTypeId = 5,
+            LocationName = "Test Organisation"
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                null,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
 
         Assert.Equal(
-            "England",
-            result.Region);
+            0,
+            result.OrganisationTypeId);
     }
 
     [Fact]
-    public void Transform_InfersScotlandFromPostcode()
+    public void Transform_UsesCreateDate()
+    {
+        var created =
+            new DateTime(
+                2025,
+                1,
+                10,
+                12,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var source = new ElfhOrganisation
+        {
+            LocationId = 100,
+            Created = created
+        };
+
+        var transformer = new OrganisationTransformer();
+
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
+
+        Assert.Equal(
+            new DateTimeOffset(created),
+            result.CreateDate);
+    }
+
+    [Fact]
+    public void Transform_UsesAmendDate()
+    {
+        var updated =
+            new DateTime(
+                2025,
+                2,
+                10,
+                12,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var source = new ElfhOrganisation
+        {
+            LocationId = 100,
+            Updated = updated,
+            AmendUserId = 123
+        };
+
+        var transformer = new OrganisationTransformer();
+
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
+
+        Assert.Equal(
+            new DateTimeOffset(updated),
+            result.AmendDate);
+
+        Assert.Equal(
+            123,
+            result.AmendUserId);
+    }
+
+    [Fact]
+    public void Transform_DeletedOrganisation_SetsRemoveDate()
+    {
+        var updated =
+            new DateTime(
+                2025,
+                2,
+                10,
+                12,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var source = new ElfhOrganisation
+        {
+            LocationId = 100,
+            Deleted = true,
+            Updated = updated,
+            AmendUserId = 123
+        };
+
+        var transformer = new OrganisationTransformer();
+
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
+
+        Assert.NotNull(
+            result.RemoveDate);
+
+        Assert.Equal(
+            new DateTimeOffset(updated),
+            result.RemoveDate);
+
+        Assert.Equal(
+            123,
+            result.RemoveUserId);
+    }
+
+    [Fact]
+    public void Transform_ActiveOrganisation_DoesNotSetRemoveDate()
     {
         var source = new ElfhOrganisation
         {
             LocationId = 100,
-            PostCode = "EH1 1AA"
+            Deleted = false
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                null,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
 
-        Assert.Equal(
-            "Scotland",
-            result.Region);
+        Assert.Null(
+            result.RemoveDate);
+
+        Assert.Null(
+            result.RemoveUserId);
     }
 
     [Fact]
-    public void Transform_InfersWalesFromPostcode()
+    public void Transform_NormalisesOrganisationName()
     {
         var source = new ElfhOrganisation
         {
             LocationId = 100,
-            PostCode = "CF10 1AA"
+            LocationName = "  Test Organisation  "
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                null,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
 
         Assert.Equal(
-            "Wales",
-            result.Region);
+            "Test Organisation",
+            result.OrganisationName);
     }
 
     [Fact]
-    public void Transform_InfersNorthernIrelandFromPostcode()
+    public void Transform_NormalisesPostCode()
     {
         var source = new ElfhOrganisation
         {
             LocationId = 100,
-            PostCode = "BT1 1AA"
+            PostCode = "  OX1 1AA  "
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                null,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
 
         Assert.Equal(
-            "Northern Ireland",
-            result.Region);
+            "OX1 1AA",
+            result.PostCode);
     }
 
     [Fact]
-    public void Transform_DeletedOrganisation_IsRemoved()
+    public void Transform_SetsMigrationRunId()
     {
+        var migrationRunId = Guid.NewGuid();
+
         var source = new ElfhOrganisation
         {
-            LocationId = 100,
-            Deleted = true
+            LocationId = 100
         };
 
-        var transformer =
-            new OrganisationTransformer();
+        var transformer = new OrganisationTransformer();
 
-        var result =
-            transformer.Transform(
-                source,
-                null,
-                Guid.NewGuid());
+        var result = transformer.Transform(
+            source,
+            null,
+            migrationRunId);
 
-        Assert.True(
-            result.IsRemoved);
+        Assert.Equal(
+            migrationRunId,
+            result.MigrationRunId);
+    }
+
+    [Fact]
+    public void Transform_SetsCreatedUtc()
+    {
+        var before =
+            DateTime.UtcNow;
+
+        var source = new ElfhOrganisation
+        {
+            LocationId = 100
+        };
+
+        var transformer = new OrganisationTransformer();
+
+        var result = transformer.Transform(
+            source,
+            null,
+            Guid.NewGuid());
+
+        var after =
+            DateTime.UtcNow;
+
+        Assert.InRange(
+            result.CreatedUtc,
+            before,
+            after);
     }
 }

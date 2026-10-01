@@ -75,7 +75,7 @@ public class StagingRepository : IStagingRepository
         table.Columns.Add("RemoveDate", typeof(DateTimeOffset));
         table.Columns.Add("RemoveUserId", typeof(int));
         table.Columns.Add("RemovalMethodId", typeof(int));
-        table.Columns.Add("CreatedUtc", typeof(DateTimeOffset));
+        table.Columns.Add("CreatedUtc", typeof(DateTime));
 
         foreach (var user in users)
         {
@@ -222,8 +222,8 @@ public class StagingRepository : IStagingRepository
     }
 
     public async Task InsertOrganisationsAsync(
-        IReadOnlyCollection<TransformedOrganisation> organisations,
-        CancellationToken cancellationToken = default)
+    IReadOnlyCollection<TransformedOrganisation> organisations,
+    CancellationToken cancellationToken = default)
     {
         if (organisations.Count == 0)
             return;
@@ -231,35 +231,41 @@ public class StagingRepository : IStagingRepository
         var table = new DataTable();
 
         table.Columns.Add("MigrationRunId", typeof(Guid));
-        table.Columns.Add("LegacyOrganisationId", typeof(int));
-        table.Columns.Add("LegacyOrganisationTypeId", typeof(int));
-        table.Columns.Add("LegacyParentOrganisationId", typeof(int));
-        table.Columns.Add("LegacyOrganisationCode", typeof(string));
-        table.Columns.Add("LegacyOrganisationName", typeof(string));
-        table.Columns.Add("LegacyPostCode", typeof(string));
+        table.Columns.Add("ElfhLocationId", typeof(int));
+        table.Columns.Add("OrganisationId", typeof(int));
+        table.Columns.Add("OrganisationName", typeof(string));
+        table.Columns.Add("ODSCode", typeof(string));
+        table.Columns.Add("PostCode", typeof(string));
         table.Columns.Add("OrganisationTypeId", typeof(int));
-        table.Columns.Add("OrganisationType", typeof(string));
-        table.Columns.Add("Region", typeof(string));
-        table.Columns.Add("CreatedUtc", typeof(DateTimeOffset));
-        table.Columns.Add("UpdatedUtc", typeof(DateTimeOffset));
-        table.Columns.Add("IsRemoved", typeof(bool));
+        table.Columns.Add("RegionId", typeof(int));
+        table.Columns.Add("ParentId", typeof(int));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+        table.Columns.Add("CreateUserId", typeof(int));
+        table.Columns.Add("AmendDate", typeof(DateTimeOffset));
+        table.Columns.Add("AmendUserId", typeof(int));
+        table.Columns.Add("RemoveDate", typeof(DateTimeOffset));
+        table.Columns.Add("RemoveUserId", typeof(int));
+        table.Columns.Add("CreatedUtc", typeof(DateTime));
 
         foreach (var organisation in organisations)
         {
             table.Rows.Add(
                 organisation.MigrationRunId,
-                organisation.LegacyOrganisationId,
-                DbValue(organisation.LegacyOrganisationTypeId),
-                DbValue(organisation.LegacyParentOrganisationId),
-                DbValue(organisation.LegacyOrganisationCode),
-                DbValue(organisation.LegacyOrganisationName),
-                DbValue(organisation.LegacyPostCode),
-                DbValue(organisation.OrganisationTypeId),
-                DbValue(organisation.OrganisationType),
-                DbValue(organisation.Region),
-                DbValue(organisation.CreatedUtc),
-                DbValue(organisation.UpdatedUtc),
-                organisation.IsRemoved);
+                organisation.ElfhLocationId,
+                organisation.OrganisationId,
+                DbValue(organisation.OrganisationName),
+                DbValue(organisation.ODSCode),
+                DbValue(organisation.PostCode),
+                organisation.OrganisationTypeId,
+                DbValue(organisation.RegionId),
+                DbValue(organisation.ParentId),
+                organisation.CreateDate,
+                DbValue(organisation.CreateUserId),
+                DbValue(organisation.AmendDate),
+                DbValue(organisation.AmendUserId),
+                DbValue(organisation.RemoveDate),
+                DbValue(organisation.RemoveUserId),
+                organisation.CreatedUtc);
         }
 
         await BulkInsertAsync(
@@ -267,7 +273,6 @@ public class StagingRepository : IStagingRepository
             "[migrations].[Organisations]",
             cancellationToken);
     }
-
     public async Task InsertOrganisationTypesAsync(
         IReadOnlyCollection<TransformedOrganisationType> organisationTypes,
         CancellationToken cancellationToken = default)
@@ -371,6 +376,7 @@ public class StagingRepository : IStagingRepository
         table.Columns.Add("AmendUserId", typeof(int));
         table.Columns.Add("RemoveDate", typeof(DateTimeOffset));
         table.Columns.Add("RemoveUserId", typeof(int));
+        table.Columns.Add("CreatedUtc", typeof(DateTime));
 
         foreach (var record in userOrganisations)
         {
@@ -389,7 +395,8 @@ public class StagingRepository : IStagingRepository
                 DbValue(record.AmendDate),
                 DbValue(record.AmendUserId),
                 DbValue(record.RemoveDate),
-                DbValue(record.RemoveUserId));
+                DbValue(record.RemoveUserId),
+                record.CreatedUtc);
         }
 
         await BulkInsertAsync(

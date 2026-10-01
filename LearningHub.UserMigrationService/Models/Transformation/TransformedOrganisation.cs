@@ -4,32 +4,33 @@ public class TransformedOrganisation
 {
     public Guid MigrationRunId { get; set; }
 
-    // Legacy identifiers
-    public int LegacyOrganisationId { get; set; }
+    public int ElfhLocationId { get; set; }
 
-    public int? LegacyOrganisationTypeId { get; set; }
+    public int OrganisationId { get; set; }
 
-    public int? LegacyParentOrganisationId { get; set; }
+    public string? OrganisationName { get; set; }
 
-    // Legacy/source values
-    public string? LegacyOrganisationCode { get; set; }
+    public string? ODSCode { get; set; }
 
-    public string? LegacyOrganisationName { get; set; }
+    public string? PostCode { get; set; }
 
-    public string? LegacyPostCode { get; set; }
+    public int OrganisationTypeId { get; set; }
 
-    // Learning Hub values
-    public int? OrganisationTypeId { get; set; }
+    public int? RegionId { get; set; }
 
-    public string? OrganisationType { get; set; }
+    public int? ParentId { get; set; }
 
-    public string? Region { get; set; }
+    public DateTimeOffset CreateDate { get; set; }
 
-    // Audit
-    public DateTimeOffset? CreatedUtc { get; set; }
+    public int? CreateUserId { get; set; }
 
-    public DateTimeOffset? UpdatedUtc { get; set; }
+    public DateTimeOffset? AmendDate { get; set; }
 
-    // Status
-    public bool IsRemoved { get; set; }
+    public int? AmendUserId { get; set; }
+
+    public DateTimeOffset? RemoveDate { get; set; }
+
+    public int? RemoveUserId { get; set; }
+
+    public DateTime CreatedUtc { get; set; }
 }

@@ -47,7 +47,7 @@ public class UserTransformer : IUserTransformer
 
             ProfessionalBodyId = null,
 
-            ProfessionalRegistrationNumber = null,
+            ProfessionalRegistrationNumber =TransformationValueHelper.NormalizeString(source.RegistrationCode),
 
             Active = source.Active,
 

@@ -16,7 +16,7 @@ public class UserMigrationDbContext : DbContext
     public DbSet<MigrationLog> MigrationLogs { get; set; }
     public DbSet<UserIdToMigrate> UserIdsToMigrate { get; set; }
     public DbSet<OrganisationLocationIdToMigrate> OrganisationLocationIdsToMigrate{ get; set; }
-
+    public DbSet<ValidationIssue> ValidationIssues { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -84,6 +84,54 @@ public class UserMigrationDbContext : DbContext
 
             entity.Property(x => x.LocationId)
                 .ValueGeneratedNever();
+        });
+        modelBuilder.Entity<ValidationIssue>(entity =>
+        {
+            entity.ToTable(
+                "ValidationIssues",
+                "migrations");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(x => x.MigrationRunId)
+                .IsRequired();
+
+            entity.Property(x => x.TableName)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(x => x.ValidationType)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.Severity)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(x => x.ColumnName)
+                .HasMaxLength(128);
+
+            entity.Property(x => x.Message)
+                .HasMaxLength(2000)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedUtc)
+                .HasDefaultValueSql("SYSUTCDATETIME()");
+
+            entity.HasIndex(x => x.MigrationRunId);
+
+            entity.HasIndex(x => x.TableName);
+
+            entity.HasIndex(x => x.Severity);
+
+            entity.HasIndex(x => x.ValidationType);
+
+            entity.HasIndex(x => x.StagingRecordId);
+
+            entity.HasIndex(x => x.ElfhRecordId);
         });
     }
 }

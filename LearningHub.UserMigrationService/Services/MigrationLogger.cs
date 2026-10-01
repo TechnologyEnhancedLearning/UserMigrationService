@@ -51,7 +51,8 @@ public class MigrationLogger : IMigrationLogger
             {
                 MigrationRunId = migrationRunId,
                 CompletedUtc = DateTime.UtcNow,
-                Status = "Failed"
+                Status = "Failed",
+                ErrorMessage = exception.ToString()
             });
     }
 
