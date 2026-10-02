@@ -56,5 +56,5 @@ public class TransformedUser
 
     public int? RemovalMethodId { get; set; }
 
-    public DateTimeOffset CreatedUtc { get; set; }
+    public DateTime? CreatedUtc { get; set; }
 }

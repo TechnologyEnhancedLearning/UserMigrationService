@@ -208,7 +208,7 @@ public class UserExtractor : IUserExtractor
                 RemoteLoginStart =
                     reader.IsDBNull(remoteLoginStartOrdinal)
                         ? null
-                        : reader.GetDateTime(remoteLoginStartOrdinal),
+                        : reader.GetDateTimeOffset(remoteLoginStartOrdinal),
 
                 RestrictToSSO =
                     GetBoolean(
@@ -218,12 +218,12 @@ public class UserExtractor : IUserExtractor
                 CreatedDate =
                     reader.IsDBNull(createdDateOrdinal)
                         ? null
-                        : reader.GetDateTime(createdDateOrdinal),
+                        : reader.GetDateTimeOffset(createdDateOrdinal),
 
                 AmendDate =
                     reader.IsDBNull(amendDateOrdinal)
                         ? null
-                        : reader.GetDateTime(amendDateOrdinal),
+                        : reader.GetDateTimeOffset(amendDateOrdinal),
 
                 AmendUserId =
                     reader.IsDBNull(amendUserIdOrdinal)

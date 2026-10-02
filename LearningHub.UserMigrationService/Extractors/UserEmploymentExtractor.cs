@@ -126,19 +126,19 @@ public class UserEmploymentExtractor : IUserEmploymentExtractor
             : reader.GetInt32(jobRoleIdOrdinal),
 
                 StartDate =
-        reader.IsDBNull(startDateOrdinal)
-            ? null
-            : reader.GetDateTime(startDateOrdinal),
+    reader.IsDBNull(startDateOrdinal)
+        ? null
+        : reader.GetFieldValue<DateTimeOffset>(startDateOrdinal),
 
                 EndDate =
-        reader.IsDBNull(endDateOrdinal)
-            ? null
-            : reader.GetDateTime(endDateOrdinal),
+    reader.IsDBNull(endDateOrdinal)
+        ? null
+        : reader.GetFieldValue<DateTimeOffset>(endDateOrdinal),
 
                 AmendDate =
-        reader.IsDBNull(amendDateOrdinal)
-            ? null
-            : reader.GetDateTime(amendDateOrdinal),
+    reader.IsDBNull(amendDateOrdinal)
+        ? null
+        : reader.GetFieldValue<DateTimeOffset>(amendDateOrdinal),
 
                 AmendUserId =
         reader.IsDBNull(amendUserIdOrdinal)

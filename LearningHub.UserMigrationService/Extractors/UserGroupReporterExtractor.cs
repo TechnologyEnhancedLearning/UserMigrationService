@@ -112,9 +112,9 @@ public class UserGroupReporterExtractor : IUserGroupReporterExtractor
             : reader.GetInt32(amendUserIdOrdinal),
 
                 AmendDate =
-        reader.IsDBNull(amendDateOrdinal)
-            ? null
-            : reader.GetDateTime(amendDateOrdinal)
+    reader.IsDBNull(amendDateOrdinal)
+        ? null
+        : reader.GetFieldValue<DateTimeOffset>(amendDateOrdinal),
             };
         }
     }

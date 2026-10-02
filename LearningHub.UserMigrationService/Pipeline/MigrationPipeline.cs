@@ -1534,20 +1534,11 @@ TransformAndStageOrganisationsAsync(
                     statistics.RecordsUnmapped++;
                     continue;
                 }
-
                 var createDate =
-                    employment.StartDate.HasValue
-                        ? new DateTimeOffset(
-                            employment.StartDate.Value,
-                            TimeSpan.Zero)
-                        : DateTimeOffset.UtcNow;
+                    employment.StartDate ?? DateTimeOffset.UtcNow;
 
                 DateTimeOffset? amendDate =
-                        employment.AmendDate.HasValue
-                            ? new DateTimeOffset(
-                                employment.AmendDate.Value,
-                                TimeSpan.Zero)
-                            : null;
+                    employment.AmendDate;
 
                 var transformed =
                     _userOrganisationTransformer.Transform(
@@ -1557,16 +1548,8 @@ TransformAndStageOrganisationsAsync(
                         organisationId: employment.LocationId.Value,
                         jobRoleTypeId: mapping.JobRoleTypeId.Value,
                         jobRole: mapping.JobRoleType,
-                        startDate: employment.StartDate.HasValue
-                            ? new DateTimeOffset(
-                                employment.StartDate.Value,
-                                TimeSpan.Zero)
-                            : null,
-                        endDate: employment.EndDate.HasValue
-                            ? new DateTimeOffset(
-                                employment.EndDate.Value,
-                                TimeSpan.Zero)
-                            : null,
+                        startDate: employment.StartDate ?? DateTimeOffset.UtcNow,
+                        endDate: employment.EndDate,
                         createDate: createDate,
                         createUserId: null,
                         amendDate: amendDate,

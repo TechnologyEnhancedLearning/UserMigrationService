@@ -89,7 +89,7 @@ public class UserTransformer : IUserTransformer
 
             RemovalMethodId = null,
 
-            CreatedUtc = DateTimeOffset.UtcNow
+            CreatedUtc = DateTime.UtcNow
         };
     }
 }

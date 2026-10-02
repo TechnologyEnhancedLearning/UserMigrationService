@@ -28,13 +28,13 @@ public class ElfhUser
 
     public Guid? RemoteLoginGuid { get; set; }
 
-    public DateTime? RemoteLoginStart { get; set; }
+    public DateTimeOffset? RemoteLoginStart { get; set; }
 
     public bool RestrictToSSO { get; set; }
 
-    public DateTime? CreatedDate { get; set; }
+    public DateTimeOffset? CreatedDate { get; set; }
 
-    public DateTime? AmendDate { get; set; }
+    public DateTimeOffset? AmendDate { get; set; }
 
     public int? AmendUserId { get; set; }
 

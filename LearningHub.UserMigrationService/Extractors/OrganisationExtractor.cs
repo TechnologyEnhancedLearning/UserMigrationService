@@ -135,12 +135,13 @@ public class OrganisationExtractor : IOrganisationExtractor
                 Created =
                     reader.IsDBNull(createdOrdinal)
                         ? null
-                        : reader.GetDateTime(createdOrdinal),
+                        : reader.GetFieldValue<DateTimeOffset>(createdOrdinal),
+                
 
                 Updated =
                     reader.IsDBNull(updatedOrdinal)
                         ? null
-                        : reader.GetDateTime(updatedOrdinal)
+                        : reader.GetFieldValue<DateTimeOffset>(updatedOrdinal)
             };
         }
     }
