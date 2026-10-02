@@ -13,12 +13,11 @@ namespace LearningHub.UserMigrationService.Pipeline;
 
 public class MigrationPipeline : IMigrationPipeline
 {
-    private readonly ILearningHubRepository _learningHubRepository;
-    private readonly ILegacyRepository _legacyRepository;
+    
     private readonly IMigrationLogger _migrationLogger;
     private readonly IUserMigrationSelectionService _userMigrationSelectionService;
     private readonly IOrganisationMigrationSelectionService _organisationMigrationSelectionService;
-
+    private readonly IMigrationMappingInitializer _migrationMappingInitializer;
 
     private readonly IProfessionalBodyExtractor _professionalBodyExtractor;
     private readonly IUserExtractor _userExtractor;
@@ -39,7 +38,8 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IUserRoleTransformer  _userRoleTransformer;
     private readonly IUserGroupRoleTransformer  _userGroupRoleTransformer;
 
-
+    private readonly ILearningHubRepository _learningHubRepository;
+    private readonly ILegacyRepository _legacyRepository;
     private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
     private readonly IStagingRepository _stagingRepository;
     private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
@@ -50,6 +50,7 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly int _batchSize;
 
     public MigrationPipeline(
+        IMigrationMappingInitializer migrationMappingInitializer,
 
         IProfessionalBodyExtractor professionalBodyExtractor,
         IUserExtractor userExtractor,
@@ -83,8 +84,9 @@ public class MigrationPipeline : IMigrationPipeline
         IValidationIssueRepository validationIssueRepository,
         IOptions<MigrationOptions> migrationOptions)
     {
-        
-       
+
+        _migrationMappingInitializer = migrationMappingInitializer;
+
         _professionalBodyExtractor = professionalBodyExtractor;
         _userExtractor = userExtractor;
         _userEmploymentExtractor = userEmploymentExtractor;
@@ -369,7 +371,54 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
+            // ==================================================
+            // Step 4.5 - Initialise migration mappings
+            // ==================================================
 
+            var mappingStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Initialise Migration Mappings");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    mappingStepId,
+                    "Information",
+                    "MigrationMappingInitializer",
+                    "Initialising migration mapping tables.");
+
+                await _migrationMappingInitializer.InitialiseAsync(
+                    cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    mappingStepId,
+                    new MigrationStatistics());
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    mappingStepId,
+                    "Information",
+                    "MigrationMappingInitializer",
+                    "Migration mapping tables initialised.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    mappingStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    mappingStepId,
+                    "Error",
+                    "MigrationMappingInitializer",
+                    "Migration mapping initialisation failed.",
+                    ex);
+
+                throw;
+            }
             // ==================================================
             // Step 5 - Transform and stage Professional Bodies
             // ==================================================
@@ -1406,6 +1455,27 @@ TransformAndStageOrganisationsAsync(
                         out mapping);
                 }
 
+                if (mapping is null ||
+                    !mapping.IsMapped ||
+                    !mapping.OrganisationTypeId.HasValue)
+                {
+                    statistics.RecordsUnmapped++;
+
+                    await RecordValidationIssuesAsync(
+                        migrationRunId,
+                        "migrations.Organisations",
+                        source.LocationId,
+                        new[]
+                        {
+                            $"No mapped Learning Hub OrganisationType exists " +
+                            $"for legacy OrganisationTypeId " +
+                            $"{source.LocationTypeId}."
+                        },
+                        cancellationToken);
+
+                    continue;
+                }
+
                 var transformed =
                     _organisationTransformer.Transform(
                         source,
@@ -1520,11 +1590,24 @@ TransformAndStageOrganisationsAsync(
                 }
 
                 if (!mappingDictionary.TryGetValue(
-                        employment.JobRoleId.Value,
-                        out var mapping))
-                {
-                    statistics.RecordsSkipped++;
-                    statistics.RecordsUnmapped++;
+                    employment.JobRoleId.Value,
+                    out var mapping))
+                            {
+                                statistics.RecordsSkipped++;
+                                statistics.RecordsUnmapped++;
+
+                                await RecordValidationIssuesAsync(
+                                    migrationRunId,
+                                    "migrations.UserOrganisations",
+                                    employment.UserEmploymentId,
+                                    new[]
+                                    {
+                                        $"No StaffGroupJobRoleType mapping exists " +
+                                        $"for legacy JobRoleId " +
+                                        $"{employment.JobRoleId}."
+                                                    },
+                                                    cancellationToken);
+
                     continue;
                 }
 

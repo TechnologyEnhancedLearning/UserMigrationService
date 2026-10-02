@@ -4,12 +4,18 @@ namespace LearningHub.UserMigrationService.Transformers;
 
 public static class RoleResolver
 {
+    private const string UserAdminLocationRoleName =
+        "Local Admin";
+
+    private const string UserGroupReporterRoleName =
+        "Reporter";
+
     public static int ResolveUserAdminLocationRole(
         IReadOnlyCollection<RoleReference> roles)
     {
         return Resolve(
             roles,
-            "Administrator");
+            UserAdminLocationRoleName);
     }
 
     public static int ResolveUserGroupReporterRole(
@@ -17,7 +23,7 @@ public static class RoleResolver
     {
         return Resolve(
             roles,
-            "Group Reporter");
+            UserGroupReporterRoleName);
     }
 
     private static int Resolve(
@@ -35,14 +41,28 @@ public static class RoleResolver
 
         if (matches.Count == 0)
         {
+            var availableRoles =
+                string.Join(
+                    ", ",
+                    roles
+                        .Where(x =>
+                            !string.IsNullOrWhiteSpace(x.Name))
+                        .Select(x =>
+                            $"{x.Id}:{x.Name!.Trim()}")
+                        .OrderBy(x => x));
+
             throw new InvalidOperationException(
-                $"Learning Hub role '{roleName}' was not found.");
+                $"Learning Hub role '{roleName}' was not found. " +
+                $"Available roles: {availableRoles}");
         }
 
         if (matches.Count > 1)
         {
             throw new InvalidOperationException(
-                $"Multiple Learning Hub roles named '{roleName}' were found.");
+                $"Multiple Learning Hub roles named '{roleName}' were found. " +
+                $"Role IDs: {string.Join(
+                    ", ",
+                    matches.Select(x => x.Id))}");
         }
 
         return matches[0].Id;

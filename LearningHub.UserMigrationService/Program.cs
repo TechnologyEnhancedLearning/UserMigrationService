@@ -75,7 +75,7 @@ builder.Services.AddScoped<IMigrationLogger, MigrationLogger>();
 
 builder.Services.AddScoped<IUserMigrationSelectionService,UserMigrationSelectionService>();
 builder.Services.AddScoped<IOrganisationMigrationSelectionService,OrganisationMigrationSelectionService>();
-
+builder.Services.AddScoped<IMigrationMappingInitializer,MigrationMappingInitializer>();
 builder.Services.AddScoped<IUserExtractor, UserExtractor>();
 builder.Services.AddScoped<IUserEmploymentExtractor,UserEmploymentExtractor>();
 builder.Services.AddScoped<IUserAdminLocationExtractor,UserAdminLocationExtractor>();

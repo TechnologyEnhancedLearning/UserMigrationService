@@ -253,7 +253,7 @@ namespace LearningHub.UserMigrationService.Repositories
                 Id,
                 Name
             FROM hub.Role
-            WHERE IsDeleted = 0;
+            WHERE Deleted = 0;
             """;
 
                 var roles = new List<RoleReference>();
