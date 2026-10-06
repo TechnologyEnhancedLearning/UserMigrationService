@@ -13,4 +13,6 @@ public class MigrationOptions
     public bool EnableValidation { get; set; } = true;
     public int BulkCopyBatchSize { get; set; } = 1000;
     public int BulkCopyTimeoutSeconds { get; set; } = 0;
+    public int SqlCommandTimeoutSeconds { get; set; } = 300;
+
 }

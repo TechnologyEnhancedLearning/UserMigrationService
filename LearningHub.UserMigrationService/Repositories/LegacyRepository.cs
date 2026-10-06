@@ -16,12 +16,15 @@ namespace LearningHub.UserMigrationService.Repositories
     {
         private readonly string _connectionString;
         private readonly UserMigrationDbContext _context;
+        private readonly int _sqlCommandTimeoutSeconds;
 
         public LegacyRepository(IOptions<DatabaseOptions> options,
+             IOptions<MigrationOptions> migrationOptions,
             UserMigrationDbContext context)
         {
             _connectionString = options.Value.LegacyHubConnectionString;
             _context = context;
+            _sqlCommandTimeoutSeconds =migrationOptions.Value.SqlCommandTimeoutSeconds;
         }
 
         public async Task<bool> TestConnectionAsync()
@@ -61,7 +64,10 @@ namespace LearningHub.UserMigrationService.Repositories
 
             await connection.OpenAsync(cancellationToken);
 
-            using var command = new SqlCommand(sql, connection);
+            await using var command =    new SqlCommand(sql, connection)
+            {
+                CommandTimeout = _sqlCommandTimeoutSeconds
+            };
 
             command.Parameters.Add(
                 new SqlParameter("@months", SqlDbType.Int)
@@ -116,7 +122,11 @@ namespace LearningHub.UserMigrationService.Repositories
 
             await connection.OpenAsync(cancellationToken);
 
-            using var command = new SqlCommand(sql, connection);
+            await using var command =
+                    new SqlCommand(sql, connection)
+                    {
+                        CommandTimeout = _sqlCommandTimeoutSeconds
+                    };
 
             command.Parameters.AddRange(parameters);
 
@@ -169,7 +179,11 @@ namespace LearningHub.UserMigrationService.Repositories
 
             await connection.OpenAsync(cancellationToken);
 
-            using var command = new SqlCommand(sql, connection);
+            await using var command =
+                    new SqlCommand(sql, connection)
+                    {
+                        CommandTimeout = _sqlCommandTimeoutSeconds
+                    };
 
             command.Parameters.AddRange(parameters);
 

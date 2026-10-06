@@ -35,6 +35,12 @@ public class MigrationMappingInitializer
 
         await InitialiseOrganisationTypeMappingsAsync(
             cancellationToken);
+
+        await InitialiseUserMappingsAsync(
+       cancellationToken);
+
+        await InitialiseOrganisationMappingsAsync(
+            cancellationToken);
     }
 
 
@@ -251,5 +257,84 @@ public class MigrationMappingInitializer
             await insertCommand.ExecuteNonQueryAsync(
                 cancellationToken);
         }
+    }
+    private async Task InitialiseUserMappingsAsync(
+    CancellationToken cancellationToken)
+    {
+        const string sql = """
+        INSERT INTO [migrations].[UserMapping]
+        (
+            LegacyUserId,
+            UserId,
+            MatchType,
+            IsMapped,
+            CreatedUtc
+        )
+        SELECT DISTINCT
+            u.UserId,
+            NULL,
+            NULL,
+            0,
+            SYSUTCDATETIME()
+        FROM [migrations].[UserIdsToMigrate] AS u
+        WHERE NOT EXISTS
+        (
+            SELECT 1
+            FROM [migrations].[UserMapping] AS m
+            WHERE m.LegacyUserId = u.UserId
+        );
+        """;
+
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(
+            cancellationToken);
+
+        await using var command =
+            new SqlCommand(
+                sql,
+                connection);
+
+        await command.ExecuteNonQueryAsync(
+            cancellationToken);
+    }
+    private async Task InitialiseOrganisationMappingsAsync(
+    CancellationToken cancellationToken)
+    {
+        const string sql = """
+        INSERT INTO [migrations].[OrganisationMapping]
+        (
+            LegacyOrganisationId,
+            OrganisationId,
+            MatchType,
+            IsMapped,
+            CreatedUtc
+        )
+        SELECT
+            o.LocationId,
+            NULL,
+            NULL,
+            0,
+            SYSUTCDATETIME()
+        FROM [migrations].[OrganisationLocationIdsToMigrate] AS o
+        WHERE NOT EXISTS
+        (
+            SELECT 1
+            FROM [migrations].[OrganisationMapping] AS m
+            WHERE m.LegacyOrganisationId = o.LocationId
+        );
+        """;
+
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command =
+            new SqlCommand(sql, connection);
+
+        await command.ExecuteNonQueryAsync(
+            cancellationToken);
     }
 }
