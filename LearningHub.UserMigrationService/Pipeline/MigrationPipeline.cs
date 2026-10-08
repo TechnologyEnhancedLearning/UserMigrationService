@@ -37,6 +37,8 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IUserOrganisationTransformer _userOrganisationTransformer;
     private readonly IUserRoleTransformer  _userRoleTransformer;
     private readonly IUserGroupRoleTransformer  _userGroupRoleTransformer;
+    private readonly IGdcRegisterTransformer _gdcRegisterTransformer;
+    private readonly IGmcRegisterTransformer _gmcRegisterTransformer;
 
     private readonly ILearningHubRepository _learningHubRepository;
     private readonly ILegacyRepository _legacyRepository;
@@ -70,6 +72,8 @@ public class MigrationPipeline : IMigrationPipeline
         IUserOrganisationTransformer userOrganisationTransformer,
         IUserRoleTransformer userRoleTransformer,
         IUserGroupRoleTransformer userGroupRoleTransformer,
+        IGdcRegisterTransformer gdcRegisterTransformer,
+        IGmcRegisterTransformer gmcRegisterTransformer,
 
         IMigrationLogger migrationLogger,
         IUserMigrationSelectionService userMigrationSelectionService,
@@ -105,6 +109,8 @@ public class MigrationPipeline : IMigrationPipeline
         _userOrganisationTransformer = userOrganisationTransformer;
         _userRoleTransformer = userRoleTransformer;
         _userGroupRoleTransformer = userGroupRoleTransformer;
+        _gdcRegisterTransformer = gdcRegisterTransformer;
+        _gmcRegisterTransformer = gmcRegisterTransformer;
 
         _migrationLogger = migrationLogger;
         _userMigrationSelectionService = userMigrationSelectionService;
@@ -741,7 +747,117 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
             // ==================================================
-            // Step 11 - Transform and stage Organisations
+            // Step 11 - Transform and stage GDC Registers
+            // ==================================================
+
+            var gdcRegisterStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage GDC Registers");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gdcRegisterStepId,
+                    "Information",
+                    "GdcRegisterTransformer",
+                    "Starting GDC Register extraction, transformation and staging.");
+
+                var gdcStatistics =
+                    await TransformAndStageGdcRegistersAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    gdcRegisterStepId,
+                    gdcStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gdcRegisterStepId,
+                    "Information",
+                    "GdcRegisterTransformer",
+                    "GDC Register extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "GDC Register transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    gdcRegisterStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gdcRegisterStepId,
+                    "Error",
+                    "GdcRegisterTransformer",
+                    "GDC Register transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+
+            // ==================================================
+            // Step 12 - Transform and stage GMC 
+            // ==================================================
+
+            var gmcRegisterStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Transform and Stage GMC Registers");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gmcRegisterStepId,
+                    "Information",
+                    "GmcRegisterTransformer",
+                    "Starting GMC Register extraction, transformation and staging.");
+
+                var gmcStatistics =
+                    await TransformAndStageGmcRegistersAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    gmcRegisterStepId,
+                    gmcStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gmcRegisterStepId,
+                    "Information",
+                    "GmcRegisterTransformer",
+                    "GMC Register extraction, transformation and staging completed.");
+
+                Console.WriteLine(
+                    "GMC Register transformation and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    gmcRegisterStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    gmcRegisterStepId,
+                    "Error",
+                    "GmcRegisterTransformer",
+                    "GMC Register transformation and staging failed.",
+                    ex);
+
+                throw;
+            }
+
+
+            // ==================================================
+            // Step 13 - Transform and stage Organisations
             // ==================================================
 
             var organisationStepId =
@@ -794,7 +910,7 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
             // ==================================================
-            // Step 12 - Transform and stage User Organisations
+            // Step 14 - Transform and stage User Organisations
             // ==================================================
 
             var userOrganisationStepId =
@@ -845,7 +961,7 @@ public class MigrationPipeline : IMigrationPipeline
             }
 
             // ==================================================
-            // Step 13 - Transform and stage User Roles
+            // Step 15 - Transform and stage User Roles
             // ==================================================
             var userRoleStepId =
                 await _migrationLogger.StartStepAsync(
@@ -873,7 +989,7 @@ public class MigrationPipeline : IMigrationPipeline
                         }
 
             // ==================================================
-            // Step 14 - Transform and stage User Group Roles
+            // Step 16 - Transform and stage User Group Roles
             // ==================================================
 
             var userGroupRoleStepId =
@@ -901,7 +1017,7 @@ public class MigrationPipeline : IMigrationPipeline
                                     throw;
                                 }
             // ==================================================
-            // Step 15 - Validation Summary
+            // Step 17 - Validation Summary
             // ==================================================
 
             // ==================================================
@@ -1889,5 +2005,173 @@ TransformAndStageOrganisationsAsync(
         await _validationIssueRepository.InsertAsync(
             issues,
             cancellationToken);
+    }
+    private async Task<MigrationStatistics>
+     TransformAndStageGdcRegistersAsync(
+         Guid migrationRunId,
+         CancellationToken cancellationToken)
+    {
+        var statistics =
+            new MigrationStatistics();
+
+        var transformedRecords =
+            new List<TransformedGdcRegister>();
+
+        await foreach (
+            var source in
+            _supportingLookupExtractor
+                .ExtractGdcAsync(cancellationToken)
+                .WithCancellation(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            statistics.RecordsRead++;
+
+            if (string.IsNullOrWhiteSpace(
+                    source.RegistrationNumber))
+            {
+                statistics.RecordsSkipped++;
+
+                continue;
+            }
+
+            TransformedGdcRegister transformed;
+
+            try
+            {
+                transformed =
+                    _gdcRegisterTransformer.Transform(
+                        source,
+                        migrationRunId);
+            }
+            catch (Exception ex)
+            {
+                statistics.RecordsFailed++;
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    null,
+                    "Error",
+                    "GdcRegisterTransformer",
+                    $"Failed to transform GDC register " +
+                    $"'{source.RegistrationNumber}'.",
+                    ex);
+
+                continue;
+            }
+
+            transformedRecords.Add(
+                transformed);
+
+            if (transformedRecords.Count >= _batchSize)
+            {
+                await _stagingRepository
+                    .InsertGdcRegistersAsync(
+                        transformedRecords,
+                        cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
+
+                transformedRecords.Clear();
+            }
+        }
+
+        if (transformedRecords.Count > 0)
+        {
+            await _stagingRepository
+                .InsertGdcRegistersAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
+        }
+
+        return statistics;
+    }
+    private async Task<MigrationStatistics>
+    TransformAndStageGmcRegistersAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
+    {
+        var statistics =
+            new MigrationStatistics();
+
+        var transformedRecords =
+            new List<TransformedGmcRegister>();
+
+        await foreach (
+            var source in
+            _supportingLookupExtractor
+                .ExtractGmcAsync(cancellationToken)
+                .WithCancellation(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            statistics.RecordsRead++;
+
+            if (string.IsNullOrWhiteSpace(
+                    source.GmcReferenceNumber))
+            {
+                statistics.RecordsSkipped++;
+
+                continue;
+            }
+
+            TransformedGmcRegister transformed;
+
+            try
+            {
+                transformed =
+                    _gmcRegisterTransformer.Transform(
+                        source,
+                        migrationRunId);
+            }
+            catch (Exception ex)
+            {
+                statistics.RecordsFailed++;
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    null,
+                    "Error",
+                    "GmcRegisterTransformer",
+                    $"Failed to transform GMC register " +
+                    $"'{source.GmcReferenceNumber}'.",
+                    ex);
+
+                continue;
+            }
+
+            transformedRecords.Add(
+                transformed);
+
+            if (transformedRecords.Count >= _batchSize)
+            {
+                await _stagingRepository
+                    .InsertGmcRegistersAsync(
+                        transformedRecords,
+                        cancellationToken);
+
+                statistics.RecordsWritten +=
+                    transformedRecords.Count;
+
+                transformedRecords.Clear();
+            }
+        }
+
+        if (transformedRecords.Count > 0)
+        {
+            await _stagingRepository
+                .InsertGmcRegistersAsync(
+                    transformedRecords,
+                    cancellationToken);
+
+            statistics.RecordsWritten +=
+                transformedRecords.Count;
+        }
+
+        return statistics;
     }
 }

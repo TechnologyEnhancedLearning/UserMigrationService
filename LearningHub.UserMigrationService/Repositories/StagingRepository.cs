@@ -556,4 +556,341 @@ public class StagingRepository : IStagingRepository
     {
         return value ?? DBNull.Value;
     }
+    public async Task InsertGdcRegistersAsync(
+    IEnumerable<TransformedGdcRegister> records,
+    CancellationToken cancellationToken)
+    {
+        var dataTable = new DataTable();
+
+        dataTable.Columns.Add("MigrationRunId", typeof(Guid));
+        dataTable.Columns.Add("RegistrationNumber", typeof(string));
+        dataTable.Columns.Add("Dentist", typeof(bool));
+        dataTable.Columns.Add("Title", typeof(string));
+        dataTable.Columns.Add("Surname", typeof(string));
+        dataTable.Columns.Add("Forenames", typeof(string));
+        dataTable.Columns.Add("Honorifics", typeof(string));
+        dataTable.Columns.Add("HouseName", typeof(string));
+        dataTable.Columns.Add("AddressLine1", typeof(string));
+        dataTable.Columns.Add("AddressLine2", typeof(string));
+        dataTable.Columns.Add("AddressLine3", typeof(string));
+        dataTable.Columns.Add("AddressLine4", typeof(string));
+        dataTable.Columns.Add("Town", typeof(string));
+        dataTable.Columns.Add("County", typeof(string));
+        dataTable.Columns.Add("PostCode", typeof(string));
+        dataTable.Columns.Add("Country", typeof(string));
+        dataTable.Columns.Add("RegistrationDate", typeof(DateTimeOffset));
+        dataTable.Columns.Add("Qualifications", typeof(string));
+        dataTable.Columns.Add("DcpTitles", typeof(string));
+        dataTable.Columns.Add("Specialties", typeof(string));
+        dataTable.Columns.Add("Condition", typeof(string));
+        dataTable.Columns.Add("Suspension", typeof(string));
+        dataTable.Columns.Add("DateProcessed", typeof(DateTimeOffset));
+        dataTable.Columns.Add("Action", typeof(string));
+
+        foreach (var record in records)
+        {
+            var row = dataTable.NewRow();
+
+            row["MigrationRunId"] =
+                record.MigrationRunId;
+
+            row["RegistrationNumber"] =
+                (object?)record.RegistrationNumber
+                ?? DBNull.Value;
+
+            row["Dentist"] =
+                record.Dentist;
+
+            row["Title"] =
+                (object?)record.Title
+                ?? DBNull.Value;
+
+            row["Surname"] =
+                (object?)record.Surname
+                ?? DBNull.Value;
+
+            row["Forenames"] =
+                (object?)record.Forenames
+                ?? DBNull.Value;
+
+            row["Honorifics"] =
+                (object?)record.Honorifics
+                ?? DBNull.Value;
+
+            row["HouseName"] =
+                (object?)record.HouseName
+                ?? DBNull.Value;
+
+            row["AddressLine1"] =
+                (object?)record.AddressLine1
+                ?? DBNull.Value;
+
+            row["AddressLine2"] =
+                (object?)record.AddressLine2
+                ?? DBNull.Value;
+
+            row["AddressLine3"] =
+                (object?)record.AddressLine3
+                ?? DBNull.Value;
+
+            row["AddressLine4"] =
+                (object?)record.AddressLine4
+                ?? DBNull.Value;
+
+            row["Town"] =
+                (object?)record.Town
+                ?? DBNull.Value;
+
+            row["County"] =
+                (object?)record.County
+                ?? DBNull.Value;
+
+            row["PostCode"] =
+                (object?)record.PostCode
+                ?? DBNull.Value;
+
+            row["Country"] =
+                (object?)record.Country
+                ?? DBNull.Value;
+
+            row["RegistrationDate"] =
+                (object?)record.RegistrationDate
+                ?? DBNull.Value;
+
+            row["Qualifications"] =
+                (object?)record.Qualifications
+                ?? DBNull.Value;
+
+            row["DcpTitles"] =
+                (object?)record.DcpTitles
+                ?? DBNull.Value;
+
+            row["Specialties"] =
+                (object?)record.Specialties
+                ?? DBNull.Value;
+
+            row["Condition"] =
+                (object?)record.Condition
+                ?? DBNull.Value;
+
+            row["Suspension"] =
+                (object?)record.Suspension
+                ?? DBNull.Value;
+
+            row["DateProcessed"] =
+                (object?)record.DateProcessed
+                ?? DBNull.Value;
+
+            row["Action"] =
+                (object?)record.Action
+                ?? DBNull.Value;
+
+            dataTable.Rows.Add(row);
+        }
+
+        if (dataTable.Rows.Count == 0)
+            return;
+
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(cancellationToken);
+
+        using var bulkCopy =
+            new SqlBulkCopy(
+                connection,
+                SqlBulkCopyOptions.TableLock,
+                null);
+
+        bulkCopy.DestinationTableName =
+            "[migrations].[GdcRegister]";
+
+        bulkCopy.BatchSize =
+            _bulkCopyBatchSize;
+
+        bulkCopy.BulkCopyTimeout =
+            _bulkCopyTimeoutSeconds;
+
+        bulkCopy.EnableStreaming = true;
+
+        // IMPORTANT:
+        // Explicitly map every column by name.
+        // Do not rely on ordinal/position matching.
+        foreach (DataColumn column in dataTable.Columns)
+        {
+            bulkCopy.ColumnMappings.Add(
+                column.ColumnName,
+                column.ColumnName);
+        }
+
+        await bulkCopy.WriteToServerAsync(
+            dataTable,
+            cancellationToken);
+    }
+    public async Task InsertGmcRegistersAsync(
+    IEnumerable<TransformedGmcRegister> records,
+    CancellationToken cancellationToken)
+    {
+        var dataTable = new DataTable();
+
+        dataTable.Columns.Add(
+            "MigrationRunId",
+            typeof(Guid));
+
+        dataTable.Columns.Add(
+            "GMC_Ref_No",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "Surname",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "Given_Name",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "Year_Of_Qualification",
+            typeof(double));
+
+        dataTable.Columns.Add(
+            "GP_Register_Date",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "Registration_Status",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "Other_Names",
+            typeof(string));
+
+        dataTable.Columns.Add(
+            "DateProcessed",
+            typeof(DateTimeOffset));
+
+        dataTable.Columns.Add(
+            "Action",
+            typeof(string));
+
+        foreach (var record in records)
+        {
+            var row = dataTable.NewRow();
+
+            row["MigrationRunId"] =
+                record.MigrationRunId;
+
+            row["GMC_Ref_No"] =
+                (object?)record.GmcReferenceNumber
+                ?? DBNull.Value;
+
+            row["Surname"] =
+                (object?)record.Surname
+                ?? DBNull.Value;
+
+            row["Given_Name"] =
+                (object?)record.GivenName
+                ?? DBNull.Value;
+
+            row["Year_Of_Qualification"] =
+                (object?)record.YearOfQualification
+                ?? DBNull.Value;
+
+            row["GP_Register_Date"] =
+                (object?)record.GpRegisterDate
+                ?? DBNull.Value;
+
+            row["Registration_Status"] =
+                (object?)record.RegistrationStatus
+                ?? DBNull.Value;
+
+            row["Other_Names"] =
+                (object?)record.OtherNames
+                ?? DBNull.Value;
+
+            row["DateProcessed"] =
+                record.DateProcessed;
+
+            row["Action"] =
+                (object?)record.Action
+                ?? DBNull.Value;
+
+            dataTable.Rows.Add(row);
+        }
+
+        if (dataTable.Rows.Count == 0)
+            return;
+
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(cancellationToken);
+
+        using var bulkCopy =
+            new SqlBulkCopy(
+                connection,
+                SqlBulkCopyOptions.TableLock,
+                null);
+
+        bulkCopy.DestinationTableName =
+            "[migrations].[GmcLrmp]";
+
+        bulkCopy.BatchSize =
+            _bulkCopyBatchSize;
+
+        bulkCopy.BulkCopyTimeout =
+            _bulkCopyTimeoutSeconds;
+
+        bulkCopy.EnableStreaming = true;
+
+        // IMPORTANT:
+        // Explicitly map source DataTable columns
+        // to destination SQL columns.
+        //
+        // This also means the identity column [Id]
+        // and default column [CreatedUtc] are ignored.
+        bulkCopy.ColumnMappings.Add(
+            "MigrationRunId",
+            "MigrationRunId");
+
+        bulkCopy.ColumnMappings.Add(
+            "GMC_Ref_No",
+            "GMC_Ref_No");
+
+        bulkCopy.ColumnMappings.Add(
+            "Surname",
+            "Surname");
+
+        bulkCopy.ColumnMappings.Add(
+            "Given_Name",
+            "Given_Name");
+
+        bulkCopy.ColumnMappings.Add(
+            "Year_Of_Qualification",
+            "Year_Of_Qualification");
+
+        bulkCopy.ColumnMappings.Add(
+            "GP_Register_Date",
+            "GP_Register_Date");
+
+        bulkCopy.ColumnMappings.Add(
+            "Registration_Status",
+            "Registration_Status");
+
+        bulkCopy.ColumnMappings.Add(
+            "Other_Names",
+            "Other_Names");
+
+        bulkCopy.ColumnMappings.Add(
+            "DateProcessed",
+            "DateProcessed");
+
+        bulkCopy.ColumnMappings.Add(
+            "Action",
+            "Action");
+
+        await bulkCopy.WriteToServerAsync(
+            dataTable,
+            cancellationToken);
+    }
 }

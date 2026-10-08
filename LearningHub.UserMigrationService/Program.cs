@@ -94,6 +94,8 @@ builder.Services.AddScoped<IUserGroupReporterTransformer,UserGroupReporterTransf
 builder.Services.AddScoped<IUserOrganisationTransformer,UserOrganisationTransformer>();
 builder.Services.AddScoped<IUserRoleTransformer,UserRoleTransformer>();
 builder.Services.AddScoped<IUserGroupRoleTransformer,UserGroupRoleTransformer>();
+builder.Services.AddScoped<IGmcRegisterTransformer, GmcRegisterTransformer>();
+builder.Services.AddScoped<IGdcRegisterTransformer,GdcRegisterTransformer>();
 
 builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
 builder.Services.AddScoped<ILegacyRepository, LegacyRepository>();

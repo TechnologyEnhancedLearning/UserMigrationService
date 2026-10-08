@@ -1,10 +1,12 @@
-﻿namespace LearningHub.UserMigrationService.Models.Extraction;
+﻿namespace LearningHub.UserMigrationService.Models.Transformation;
 
-public class ElfhGdcRegister
+public class TransformedGdcRegister
 {
+    public Guid MigrationRunId { get; set; }
+
     public string? RegistrationNumber { get; set; }
 
-    public bool? Dentist { get; set; }
+    public bool Dentist { get; set; }
 
     public string? Title { get; set; }
 

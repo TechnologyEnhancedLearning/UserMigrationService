@@ -1,8 +1,10 @@
-﻿namespace LearningHub.UserMigrationService.Models.Extraction;
+﻿namespace LearningHub.UserMigrationService.Models.Transformation;
 
-public class ElfhGmcRegister
+public class TransformedGmcRegister
 {
-    public string? GmcReferenceNumber { get; set; }
+    public Guid MigrationRunId { get; set; }
+
+    public string GmcReferenceNumber { get; set; } = string.Empty;
 
     public string? Surname { get; set; }
 
@@ -16,7 +18,7 @@ public class ElfhGmcRegister
 
     public string? OtherNames { get; set; }
 
-    public DateTime? DateProcessed { get; set; }
+    public DateTimeOffset DateProcessed { get; set; }
 
     public string? Action { get; set; }
 }

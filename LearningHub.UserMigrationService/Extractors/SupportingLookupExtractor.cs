@@ -148,7 +148,7 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
                 Dentist =
                     reader.IsDBNull(dentistOrdinal)
                         ? null
-                        : reader.GetString(dentistOrdinal),
+                        : reader.GetBoolean(dentistOrdinal),
 
                 Title =
                     reader.IsDBNull(titleOrdinal)
@@ -216,9 +216,7 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
                         : reader.GetString(countryOrdinal),
 
                 RegistrationDate =
-                    reader.IsDBNull(registrationDateOrdinal)
-                        ? null
-                        : reader.GetDateTime(registrationDateOrdinal),
+                    GetNullableDateTime(reader, "regdate"),
 
                 Qualifications =
                     reader.IsDBNull(qualificationsOrdinal)
@@ -246,9 +244,7 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
                         : reader.GetString(suspensionOrdinal),
 
                 DateProcessed =
-                    reader.IsDBNull(dateProcessedOrdinal)
-                        ? null
-                        : reader.GetDateTime(dateProcessedOrdinal),
+                    GetNullableDateTime(reader, "dateProcessed"),
 
                 Action =
                     reader.IsDBNull(actionOrdinal)
@@ -342,12 +338,12 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
                 YearOfQualification =
                     reader.IsDBNull(yearOfQualificationOrdinal)
                         ? null
-                        : reader.GetInt32(yearOfQualificationOrdinal),
+                        : reader.GetDouble(yearOfQualificationOrdinal),
 
                 GpRegisterDate =
                     reader.IsDBNull(gpRegisterDateOrdinal)
                         ? null
-                        : reader.GetDateTime(gpRegisterDateOrdinal),
+                        : reader.GetString(gpRegisterDateOrdinal),
 
                 RegistrationStatus =
                     reader.IsDBNull(registrationStatusOrdinal)
@@ -430,5 +426,36 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
                 Deleted = false
             };
         }
+    }
+    private static DateTime? GetNullableDateTime(
+    SqlDataReader reader,
+    string columnName)
+    {
+        var ordinal = reader.GetOrdinal(columnName);
+
+        if (reader.IsDBNull(ordinal))
+            return null;
+
+        var value = reader.GetValue(ordinal);
+
+        if (value is DateTime dateTime)
+            return dateTime;
+
+        if (value is DateTimeOffset dateTimeOffset)
+            return dateTimeOffset.DateTime;
+
+        if (value is string stringValue)
+        {
+            if (DateTime.TryParse(
+                    stringValue,
+                    out var parsedDateTime))
+            {
+                return parsedDateTime;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 }

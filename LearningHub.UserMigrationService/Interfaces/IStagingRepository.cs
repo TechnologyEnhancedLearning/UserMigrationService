@@ -42,4 +42,11 @@ public interface IStagingRepository
     Task InsertUserGroupRolesAsync(
         IReadOnlyCollection<TransformedUserGroupRole> userGroupRoles,
         CancellationToken cancellationToken = default);
+    Task InsertGdcRegistersAsync(
+        IEnumerable<TransformedGdcRegister> records,
+        CancellationToken cancellationToken);
+
+    Task InsertGmcRegistersAsync(
+        IEnumerable<TransformedGmcRegister> records,
+        CancellationToken cancellationToken);
 }
