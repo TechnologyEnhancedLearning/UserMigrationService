@@ -13,4 +13,6 @@ public interface ISupportingLookupExtractor
     IAsyncEnumerable<ElfhSupportingLookup>
         ExtractOrganisationTypesAsync(
             CancellationToken cancellationToken = default);
+    IAsyncEnumerable<ElfhSupportingLookup> ExtractStaffGroupsAsync(
+    CancellationToken cancellationToken = default);
 }

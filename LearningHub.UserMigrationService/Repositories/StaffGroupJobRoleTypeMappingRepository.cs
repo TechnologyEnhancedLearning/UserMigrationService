@@ -18,92 +18,74 @@ public class StaffGroupJobRoleTypeMappingRepository
             databaseOptions.Value.LearningHubConnectionString;
     }
 
-    public async Task<IReadOnlyList<StaffGroupJobRoleTypeMapping>>
-        GetMappingsAsync(
-            CancellationToken cancellationToken = default)
+public async Task<IReadOnlyList<StaffGroupJobRoleTypeMapping>>
+    GetMappingsAsync(
+        CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT
-                Id,
-                LegacyStaffGroupId,
-                LegacyStaffGroup,
-                JobRoleTypeId,
-                JobRoleType,
-                IsMapped,
-                CreatedUtc,
-                UpdatedUtc
-            FROM [migrations].[StaffGroupJobRoleTypeMapping]
-            ORDER BY LegacyStaffGroupId;
-            """;
+        SELECT
+            Id,
+            LegacyStaffGroupId,
+            LegacyStaffGroup,
+            JobRoleTypeId,
+            JobRoleType,
+            IsMapped,
+            CreatedUtc,
+            UpdatedUtc
+        FROM [migrations].[StaffGroupJobRoleTypeMapping]
+        ORDER BY LegacyStaffGroupId;
+        """;
 
-        var results =
-            new List<StaffGroupJobRoleTypeMapping>();
+        var results = new List<StaffGroupJobRoleTypeMapping>();
 
-        await using var connection =
-            new SqlConnection(_connectionString);
-
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
 
         await using var reader =
             await command.ExecuteReaderAsync(cancellationToken);
 
+        var idOrdinal = reader.GetOrdinal("Id");
+        var legacyIdOrdinal = reader.GetOrdinal("LegacyStaffGroupId");
+        var legacyNameOrdinal = reader.GetOrdinal("LegacyStaffGroup");
+        var jobRoleIdOrdinal = reader.GetOrdinal("JobRoleTypeId");
+        var jobRoleNameOrdinal = reader.GetOrdinal("JobRoleType");
+        var isMappedOrdinal = reader.GetOrdinal("IsMapped");
+        var createdUtcOrdinal = reader.GetOrdinal("CreatedUtc");
+
         while (await reader.ReadAsync(cancellationToken))
         {
-            results.Add(
-                new StaffGroupJobRoleTypeMapping
-                {
-                    Id = reader.GetInt32(
-                        reader.GetOrdinal("Id")),
+            results.Add(new StaffGroupJobRoleTypeMapping
+            {
+                Id = reader.GetInt32(idOrdinal),
 
-                    LegacyStaffGroupId =
-                        reader.GetInt32(
-                            reader.GetOrdinal(
-                                "LegacyStaffGroupId")),
+                LegacyStaffGroupId =
+                    reader.GetInt32(legacyIdOrdinal),
 
-                    LegacyStaffGroup =
-                        reader.GetString(
-                            reader.GetOrdinal(
-                                "LegacyStaffGroup")),
+                LegacyStaffGroup =
+                    reader.IsDBNull(legacyNameOrdinal)
+                        ? string.Empty
+                        : reader.GetString(legacyNameOrdinal),
 
-                    JobRoleTypeId =
-                        reader.IsDBNull(
-                            reader.GetOrdinal(
-                                "JobRoleTypeId"))
-                            ? null
-                            : reader.GetInt32(
-                                reader.GetOrdinal(
-                                    "JobRoleTypeId")),
+                JobRoleTypeId =
+                    reader.IsDBNull(jobRoleIdOrdinal)
+                        ? null
+                        : reader.GetInt32(jobRoleIdOrdinal),
 
-                    JobRoleType =
-                        reader.GetString(
-                            reader.GetOrdinal(
-                                "JobRoleType")),
+                JobRoleType =
+                    reader.IsDBNull(jobRoleNameOrdinal)
+                        ? string.Empty
+                        : reader.GetString(jobRoleNameOrdinal),
 
-                    IsMapped =
-                        reader.GetBoolean(
-                            reader.GetOrdinal(
-                                "IsMapped")),
+                IsMapped = !reader.IsDBNull(isMappedOrdinal)
+                    && reader.GetBoolean(isMappedOrdinal),
 
-                    CreatedUtc =
-                        reader.GetDateTime(
-                            reader.GetOrdinal(
-                                "CreatedUtc")),
-
-                    UpdatedUtc =
-                        reader.IsDBNull(
-                            reader.GetOrdinal(
-                                "UpdatedUtc"))
-                            ? null
-                            : reader.GetDateTime(
-                                reader.GetOrdinal(
-                                    "UpdatedUtc"))
-                });
+                CreatedUtc = reader.GetDateTime(createdUtcOrdinal)
+            });
         }
 
         return results;

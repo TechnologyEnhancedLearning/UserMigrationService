@@ -41,9 +41,69 @@ public class MigrationMappingInitializer
 
         await InitialiseOrganisationMappingsAsync(
             cancellationToken);
+        await InitialiseStaffGroupJobRoleTypeMappingsAsync(
+        cancellationToken);
     }
 
+    private async Task InitialiseStaffGroupJobRoleTypeMappingsAsync(
+    CancellationToken cancellationToken)
+    {
+        await using var connection = new SqlConnection(_connectionString);
 
+        await connection.OpenAsync(cancellationToken);
+
+        await foreach (
+            var staffGroup in _supportingLookupExtractor
+                .ExtractStaffGroupsAsync(cancellationToken)
+                .WithCancellation(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Change Id and Name to the actual properties
+            // returned by your staff group extractor.
+            var legacyStaffGroupId = staffGroup.Id;
+            var legacyStaffGroupName = staffGroup.Name;
+
+            const string sql = """
+            IF NOT EXISTS
+            (
+                SELECT 1
+                FROM [migrations].[StaffGroupJobRoleTypeMapping]
+                WHERE [LegacyStaffGroupId] = @LegacyStaffGroupId
+            )
+            BEGIN
+                INSERT INTO [migrations].[StaffGroupJobRoleTypeMapping]
+                (
+                    [LegacyStaffGroupId],
+                    [LegacyStaffGroup],
+                    [JobRoleTypeId],
+                    [IsMapped],
+                    [CreatedUtc]
+                )
+                VALUES
+                (
+                    @LegacyStaffGroupId,
+                    @LegacyStaffGroup,
+                    NULL,
+                    0,
+                    SYSUTCDATETIME()
+                );
+            END;
+            """;
+
+            await using var command = new SqlCommand(sql, connection);
+
+            command.Parameters.AddWithValue(
+                "@LegacyStaffGroupId",
+                legacyStaffGroupId);
+
+            command.Parameters.AddWithValue(
+                "@LegacyStaffGroup",
+                (object?)legacyStaffGroupName ?? DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
     private async Task InitialiseProfessionalBodyMappingsAsync(
     CancellationToken cancellationToken)
     {

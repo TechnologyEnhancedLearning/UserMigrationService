@@ -458,4 +458,47 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
 
         return null;
     }
+    public async IAsyncEnumerable<ElfhSupportingLookup>
+    ExtractStaffGroupsAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation]
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+        SELECT
+            staffGroupId,
+            staffGroupName,
+            deleted
+        FROM dbo.staffGroupTBL
+        ORDER BY staffGroupId;
+        """;
+
+        await using var connection = new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
+
+        await using var reader = await command.ExecuteReaderAsync(
+            CommandBehavior.SequentialAccess,
+            cancellationToken);
+
+        var idOrdinal = reader.GetOrdinal("staffGroupId");
+        var nameOrdinal = reader.GetOrdinal("staffGroupName");
+        var deletedOrdinal = reader.GetOrdinal("deleted");
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            yield return new ElfhSupportingLookup
+            {
+                LookupType = "StaffGroup",
+                Id = reader.GetInt32(idOrdinal),
+                Name = reader.GetString(nameOrdinal),
+                Description = null,
+                Deleted = reader.GetBoolean(deletedOrdinal)
+            };
+        }
+    }
 }
