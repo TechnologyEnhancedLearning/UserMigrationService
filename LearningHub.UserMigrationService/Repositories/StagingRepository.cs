@@ -2,6 +2,7 @@
 using LearningHub.UserMigrationService.Configuration;
 using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Models.Transformation;
+using LearningHub.UserMigrationService.Models.Staging;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
@@ -497,6 +498,126 @@ public class StagingRepository : IStagingRepository
             "[migrations].[UserGroupRole]",
             cancellationToken);
     }
+
+    public async Task InsertUserExternalSystemsAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<UserExternalSystemStagingRecord> records,
+        CancellationToken cancellationToken = default)
+    {
+        if (records.Count == 0)
+            return;
+
+        var table = new DataTable();
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("SourceUserExternalSystemId", typeof(int));
+        table.Columns.Add("LegacyUserId", typeof(int));
+        table.Columns.Add("UserId", typeof(int));
+        table.Columns.Add("LegacyExternalSystemId", typeof(int));
+        table.Columns.Add("ExternalSystemId", typeof(int));
+        table.Columns.Add("LegacyAmendUserId", typeof(int));
+        table.Columns.Add("AmendUserId", typeof(int));
+        table.Columns.Add("Active", typeof(bool));
+        table.Columns.Add("AmendDate", typeof(DateTimeOffset));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+
+        foreach (var record in records)
+        {
+            // No business transformation: the legacy IDs are copied unchanged
+            // into the corresponding destination-ID staging columns.
+            table.Rows.Add(
+                migrationRunId,
+                record.SourceUserExternalSystemId,
+                record.UserId,
+                record.UserId,
+                record.ExternalSystemId,
+                record.ExternalSystemId,
+                record.AmendUserId,
+                record.AmendUserId,
+                record.Active,
+                record.AmendDate,
+                DbValue(record.CreateDate));
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserExternalSystem]",
+            cancellationToken);
+    }
+
+    public async Task InsertUserPasswordValidationTokensAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<UserPasswordValidationTokenStagingRecord> records,
+        CancellationToken cancellationToken = default)
+    {
+        if (records.Count == 0)
+            return;
+
+        var table = new DataTable();
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("SourceUserPasswordValidationTokenId", typeof(int));
+        table.Columns.Add("HashedToken", typeof(string));
+        table.Columns.Add("Salt", typeof(string));
+        table.Columns.Add("Lookup", typeof(string));
+        table.Columns.Add("Expiry", typeof(DateTimeOffset));
+        table.Columns.Add("TenantId", typeof(int));
+        table.Columns.Add("UserId", typeof(int));
+        table.Columns.Add("CreateUserId", typeof(int));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+
+        foreach (var record in records)
+        {
+            table.Rows.Add(
+                migrationRunId,
+                record.SourceUserPasswordValidationTokenId,
+                record.HashedToken,
+                record.Salt,
+                record.Lookup,
+                record.Expiry,
+                record.TenantId,
+                record.UserId,
+                record.CreateUserId,
+                record.CreateDate);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[UserPasswordValidationTokens]",
+            cancellationToken);
+    }
+
+    public async Task InsertMergeUserLearningHistoryLogsAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<MergeUserLearningHistoryLogStagingRecord> records,
+        CancellationToken cancellationToken = default)
+    {
+        if (records.Count == 0)
+            return;
+
+        var table = new DataTable();
+        table.Columns.Add("MigrationRunId", typeof(Guid));
+        table.Columns.Add("SourceMergeUserId", typeof(int));
+        table.Columns.Add("FromUserId", typeof(int));
+        table.Columns.Add("ToUserId", typeof(int));
+        table.Columns.Add("CreateUserId", typeof(int));
+        table.Columns.Add("CreateDate", typeof(DateTimeOffset));
+
+        foreach (var record in records)
+        {
+            table.Rows.Add(
+                migrationRunId,
+                record.SourceMergeUserId,
+                record.FromUserId,
+                record.ToUserId,
+                record.CreateUserId,
+                record.CreateDate);
+        }
+
+        await BulkInsertAsync(
+            table,
+            "[migrations].[MergeUserLearningHistoryLog]",
+            cancellationToken);
+    }
+
     private async Task BulkInsertAsync(
         DataTable table,
         string destinationTable,

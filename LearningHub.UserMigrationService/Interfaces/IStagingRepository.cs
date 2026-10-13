@@ -1,9 +1,25 @@
 ﻿using LearningHub.UserMigrationService.Models.Transformation;
+using LearningHub.UserMigrationService.Models.Staging;
 
 namespace LearningHub.UserMigrationService.Interfaces;
 
 public interface IStagingRepository
 {
+    Task InsertUserExternalSystemsAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<UserExternalSystemStagingRecord> records,
+        CancellationToken cancellationToken = default);
+
+    Task InsertUserPasswordValidationTokensAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<UserPasswordValidationTokenStagingRecord> records,
+        CancellationToken cancellationToken = default);
+
+    Task InsertMergeUserLearningHistoryLogsAsync(
+        Guid migrationRunId,
+        IReadOnlyCollection<MergeUserLearningHistoryLogStagingRecord> records,
+        CancellationToken cancellationToken = default);
+
     Task InsertProfessionalBodiesAsync(
         IReadOnlyCollection<TransformedProfessionalBody> professionalBodies,
         CancellationToken cancellationToken = default);

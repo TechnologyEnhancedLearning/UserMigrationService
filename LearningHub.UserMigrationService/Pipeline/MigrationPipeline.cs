@@ -13,10 +13,11 @@ namespace LearningHub.UserMigrationService.Pipeline;
 
 public class MigrationPipeline : IMigrationPipeline
 {
-    
+
     private readonly IMigrationLogger _migrationLogger;
     private readonly IUserMigrationSelectionService _userMigrationSelectionService;
     private readonly IOrganisationMigrationSelectionService _organisationMigrationSelectionService;
+    private readonly ISupportingUserTablesMigrationService _supportingUserTablesMigrationService;
     private readonly IMigrationMappingInitializer _migrationMappingInitializer;
 
     private readonly IProfessionalBodyExtractor _professionalBodyExtractor;
@@ -78,6 +79,7 @@ public class MigrationPipeline : IMigrationPipeline
         IMigrationLogger migrationLogger,
         IUserMigrationSelectionService userMigrationSelectionService,
         IOrganisationMigrationSelectionService organisationMigrationSelectionService,
+        ISupportingUserTablesMigrationService supportingUserTablesMigrationService,
 
         ILegacyRepository legacyRepository,
         ILearningHubRepository learningHubRepository,
@@ -115,6 +117,7 @@ public class MigrationPipeline : IMigrationPipeline
         _migrationLogger = migrationLogger;
         _userMigrationSelectionService = userMigrationSelectionService;
         _organisationMigrationSelectionService = organisationMigrationSelectionService;
+        _supportingUserTablesMigrationService = supportingUserTablesMigrationService;
 
         _organisationTypeMappingRepository = organisationTypeMappingRepository;
         _learningHubRepository = learningHubRepository;
@@ -533,6 +536,61 @@ public class MigrationPipeline : IMigrationPipeline
             }
 
             // ==================================================
+
+            // ==================================================
+            // Step 6.5 - Extract and stage supporting user tables
+            // ==================================================
+
+            var supportingUserTablesStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Extract and Stage Supporting User Tables");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    supportingUserTablesStepId,
+                    "Information",
+                    "SupportingUserTablesMigrationService",
+                    "Extracting and staging UserExternalSystem, UserPasswordValidationTokens, and MergeUserLearningHistoryLog for selected users.");
+
+                var supportingUserTablesStatistics =
+                    await _supportingUserTablesMigrationService.ExtractAndStageAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    supportingUserTablesStepId,
+                    supportingUserTablesStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    supportingUserTablesStepId,
+                    "Information",
+                    "SupportingUserTablesMigrationService",
+                    $"Supporting user tables staged. Read: {supportingUserTablesStatistics.RecordsRead}; written: {supportingUserTablesStatistics.RecordsWritten}; skipped: {supportingUserTablesStatistics.RecordsSkipped}.");
+
+                Console.WriteLine(
+                    "Supporting user tables extraction and staging completed.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    supportingUserTablesStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    supportingUserTablesStepId,
+                    "Error",
+                    "SupportingUserTablesMigrationService",
+                    "Supporting user tables extraction and staging failed.",
+                    ex);
+
+                throw;
+            }
+
             // Step 7 - Transform and stage User Employments
             // ==================================================
 
@@ -968,25 +1026,25 @@ public class MigrationPipeline : IMigrationPipeline
                     migrationRunId,
                     "Transform and Stage User Roles");
 
-                        try
-                        {
-                            var statistics =
-                                await TransformAndStageUserRolesAsync(
-                                    migrationRunId,
-                                    cancellationToken);
+            try
+            {
+                var statistics =
+                    await TransformAndStageUserRolesAsync(
+                        migrationRunId,
+                        cancellationToken);
 
-                            await _migrationLogger.CompleteStepAsync(
-                                userRoleStepId,
-                                statistics);
-                        }
-                        catch (Exception ex)
-                        {
-                            await _migrationLogger.FailStepAsync(
-                                userRoleStepId,
-                                ex);
+                await _migrationLogger.CompleteStepAsync(
+                    userRoleStepId,
+                    statistics);
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userRoleStepId,
+                    ex);
 
-                            throw;
-                        }
+                throw;
+            }
 
             // ==================================================
             // Step 16 - Transform and stage User Group Roles
@@ -997,25 +1055,25 @@ public class MigrationPipeline : IMigrationPipeline
                         migrationRunId,
                         "Transform and Stage User Group Roles");
 
-                                try
-                                {
-                                    var statistics =
-                                        await TransformAndStageUserGroupRolesAsync(
-                                            migrationRunId,
-                                            cancellationToken);
+            try
+            {
+                var statistics =
+                    await TransformAndStageUserGroupRolesAsync(
+                        migrationRunId,
+                        cancellationToken);
 
-                                    await _migrationLogger.CompleteStepAsync(
-                                        userGroupRoleStepId,
-                                        statistics);
-                                }
-                                catch (Exception ex)
-                                {
-                                    await _migrationLogger.FailStepAsync(
-                                        userGroupRoleStepId,
-                                        ex);
+                await _migrationLogger.CompleteStepAsync(
+                    userGroupRoleStepId,
+                    statistics);
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userGroupRoleStepId,
+                    ex);
 
-                                    throw;
-                                }
+                throw;
+            }
             // ==================================================
             // Step 17 - Validation Summary
             // ==================================================
@@ -1708,21 +1766,21 @@ TransformAndStageOrganisationsAsync(
                 if (!mappingDictionary.TryGetValue(
                     employment.JobRoleId.Value,
                     out var mapping))
-                            {
-                                statistics.RecordsSkipped++;
-                                statistics.RecordsUnmapped++;
+                {
+                    statistics.RecordsSkipped++;
+                    statistics.RecordsUnmapped++;
 
-                                await RecordValidationIssuesAsync(
-                                    migrationRunId,
-                                    "migrations.UserOrganisations",
-                                    employment.UserEmploymentId,
-                                    new[]
-                                    {
+                    await RecordValidationIssuesAsync(
+                        migrationRunId,
+                        "migrations.UserOrganisations",
+                        employment.UserEmploymentId,
+                        new[]
+                        {
                                         $"No StaffGroupJobRoleType mapping exists " +
                                         $"for legacy JobRoleId " +
                                         $"{employment.JobRoleId}."
-                                                    },
-                                                    cancellationToken);
+                                        },
+                                        cancellationToken);
 
                     continue;
                 }
@@ -1766,30 +1824,30 @@ TransformAndStageOrganisationsAsync(
                                 transformed)
                             : Array.Empty<string>();
 
-                                    if (validationErrors.Count > 0)
-                                    {
-                                        statistics.RecordsFailed++;
+                if (validationErrors.Count > 0)
+                {
+                    statistics.RecordsFailed++;
 
-                                        await RecordValidationIssuesAsync(
-                                            migrationRunId,
-                                            "migrations.UserOrganisations",
-                                            employment.UserEmploymentId,
-                                            validationErrors,
-                                            cancellationToken);
+                    await RecordValidationIssuesAsync(
+                        migrationRunId,
+                        "migrations.UserOrganisations",
+                        employment.UserEmploymentId,
+                        validationErrors,
+                        cancellationToken);
 
-                                        foreach (var error in validationErrors)
-                                        {
-                                            await _migrationLogger.LogAsync(
-                                                migrationRunId,
-                                                null,
-                                                "Warning",
-                                                "UserOrganisationTransformer",
-                                                $"Legacy User Employment " +
-                                                $"{employment.UserEmploymentId}: {error}");
-                                        }
+                    foreach (var error in validationErrors)
+                    {
+                        await _migrationLogger.LogAsync(
+                            migrationRunId,
+                            null,
+                            "Warning",
+                            "UserOrganisationTransformer",
+                            $"Legacy User Employment " +
+                            $"{employment.UserEmploymentId}: {error}");
+                    }
 
-                                        continue;
-                                    }
+                    continue;
+                }
                 transformedRecords.Add(transformed);
 
                 if (employment.Deleted)

@@ -73,38 +73,43 @@ builder.Services.AddScoped<IMigrationPipeline, MigrationPipeline>();
 
 builder.Services.AddScoped<IMigrationLogger, MigrationLogger>();
 
-builder.Services.AddScoped<IUserMigrationSelectionService,UserMigrationSelectionService>();
-builder.Services.AddScoped<IOrganisationMigrationSelectionService,OrganisationMigrationSelectionService>();
-builder.Services.AddScoped<IMigrationMappingInitializer,MigrationMappingInitializer>();
+builder.Services.AddScoped<IUserMigrationSelectionService, UserMigrationSelectionService>();
+builder.Services.AddScoped<IOrganisationMigrationSelectionService, OrganisationMigrationSelectionService>();
+builder.Services.AddScoped<ISupportingUserTablesMigrationService, SupportingUserTablesMigrationService>();
+builder.Services.AddScoped<ISupportingUserTablesMigrationService,SupportingUserTablesMigrationService>();
+builder.Services.AddScoped<IMigrationMappingInitializer, MigrationMappingInitializer>();
+
 builder.Services.AddScoped<IUserExtractor, UserExtractor>();
-builder.Services.AddScoped<IUserEmploymentExtractor,UserEmploymentExtractor>();
-builder.Services.AddScoped<IUserAdminLocationExtractor,UserAdminLocationExtractor>();
-builder.Services.AddScoped<IUserGroupReporterExtractor,UserGroupReporterExtractor>();
+builder.Services.AddScoped<IUserEmploymentExtractor, UserEmploymentExtractor>();
+builder.Services.AddScoped<IUserAdminLocationExtractor, UserAdminLocationExtractor>();
+builder.Services.AddScoped<IUserGroupReporterExtractor, UserGroupReporterExtractor>();
 builder.Services.AddScoped<IProfessionalBodyExtractor, ProfessionalBodyExtractor>();
 builder.Services.AddScoped<IOrganisationExtractor, OrganisationExtractor>();
 builder.Services.AddScoped<ISupportingLookupExtractor, SupportingLookupExtractor>();
+builder.Services.AddScoped<ISupportingUserTablesExtractor, SupportingUserTablesExtractor>();
+builder.Services.AddScoped<ISupportingUserTablesExtractor, SupportingUserTablesExtractor>();
 
-builder.Services.AddScoped<IProfessionalBodyTransformer,ProfessionalBodyTransformer>();
-builder.Services.AddScoped<IOrganisationTransformer,OrganisationTransformer>();
-builder.Services.AddScoped<IOrganisationTypeTransformer,OrganisationTypeTransformer>();
+builder.Services.AddScoped<IProfessionalBodyTransformer, ProfessionalBodyTransformer>();
+builder.Services.AddScoped<IOrganisationTransformer, OrganisationTransformer>();
+builder.Services.AddScoped<IOrganisationTypeTransformer, OrganisationTypeTransformer>();
 builder.Services.AddScoped<IUserTransformer, UserTransformer>();
-builder.Services.AddScoped<IUserEmploymentTransformer,UserEmploymentTransformer>();
-builder.Services.AddScoped<IUserAdminLocationTransformer,UserAdminLocationTransformer>();
-builder.Services.AddScoped<IUserGroupReporterTransformer,UserGroupReporterTransformer>();
-builder.Services.AddScoped<IUserOrganisationTransformer,UserOrganisationTransformer>();
-builder.Services.AddScoped<IUserRoleTransformer,UserRoleTransformer>();
-builder.Services.AddScoped<IUserGroupRoleTransformer,UserGroupRoleTransformer>();
+builder.Services.AddScoped<IUserEmploymentTransformer, UserEmploymentTransformer>();
+builder.Services.AddScoped<IUserAdminLocationTransformer, UserAdminLocationTransformer>();
+builder.Services.AddScoped<IUserGroupReporterTransformer, UserGroupReporterTransformer>();
+builder.Services.AddScoped<IUserOrganisationTransformer, UserOrganisationTransformer>();
+builder.Services.AddScoped<IUserRoleTransformer, UserRoleTransformer>();
+builder.Services.AddScoped<IUserGroupRoleTransformer, UserGroupRoleTransformer>();
 builder.Services.AddScoped<IGmcRegisterTransformer, GmcRegisterTransformer>();
-builder.Services.AddScoped<IGdcRegisterTransformer,GdcRegisterTransformer>();
+builder.Services.AddScoped<IGdcRegisterTransformer, GdcRegisterTransformer>();
 
 builder.Services.AddScoped<IMigrationRunRepository, MigrationRunRepository>();
 builder.Services.AddScoped<ILegacyRepository, LegacyRepository>();
 builder.Services.AddScoped<ILearningHubRepository, LearningHubRepository>();
-builder.Services.AddScoped<IProfessionalBodyMappingRepository,ProfessionalBodyMappingRepository>();
-builder.Services.AddScoped<IOrganisationTypeMappingRepository,OrganisationTypeMappingRepository>();
-builder.Services.AddScoped<IStagingRepository,StagingRepository>();
-builder.Services.AddScoped<IStaffGroupJobRoleTypeMappingRepository,StaffGroupJobRoleTypeMappingRepository>();
-builder.Services.AddScoped<IValidationIssueRepository,ValidationIssueRepository>();
+builder.Services.AddScoped<IProfessionalBodyMappingRepository, ProfessionalBodyMappingRepository>();
+builder.Services.AddScoped<IOrganisationTypeMappingRepository, OrganisationTypeMappingRepository>();
+builder.Services.AddScoped<IStagingRepository, StagingRepository>();
+builder.Services.AddScoped<IStaffGroupJobRoleTypeMappingRepository, StaffGroupJobRoleTypeMappingRepository>();
+builder.Services.AddScoped<IValidationIssueRepository, ValidationIssueRepository>();
 
 builder.Services.AddHostedService<MigrationWorker>();
 
