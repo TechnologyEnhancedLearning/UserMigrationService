@@ -64,9 +64,10 @@ public class OrganisationExtractor : IOrganisationExtractor
         await connection.OpenAsync(cancellationToken);
 
         await using var command =
-            new SqlCommand(sql, connection);
-
-        command.CommandTimeout = 0;
+            new SqlCommand(sql, connection)
+            {
+                CommandTimeout = 0
+            };
 
         command.Parameters.AddRange(
             parameters.ToArray());

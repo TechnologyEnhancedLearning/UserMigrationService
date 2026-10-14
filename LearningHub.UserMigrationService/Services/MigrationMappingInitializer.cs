@@ -35,7 +35,7 @@ public class MigrationMappingInitializer
 
         await InitialiseOrganisationTypeMappingsAsync(
             cancellationToken);
-
+        await ResolveOrganisationTypeMappingsAsync(cancellationToken);
         await InitialiseUserMappingsAsync(
        cancellationToken);
 
@@ -43,8 +43,54 @@ public class MigrationMappingInitializer
             cancellationToken);
         await InitialiseStaffGroupJobRoleTypeMappingsAsync(
         cancellationToken);
+        await ResolveStaffGroupJobRoleTypeMappingsAsync(cancellationToken);
     }
+    private async Task ResolveStaffGroupJobRoleTypeMappingsAsync(
+    CancellationToken cancellationToken)
+    {
+        const string sql = """
+        UPDATE [migrations].[StaffGroupJobRoleTypeMapping]
+        SET JobRoleTypeId = LegacyStaffGroupId,
+            JobRoleType   = LEFT(LTRIM(RTRIM(LegacyStaffGroup)), 100),
+            IsMapped      = 1,
+            UpdatedUtc    = SYSUTCDATETIME()
+        WHERE IsMapped = 0
+          AND JobRoleTypeId IS NULL;
+        """;
 
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+    private async Task ResolveOrganisationTypeMappingsAsync(
+    CancellationToken cancellationToken)
+    {
+        const string sql = """
+        UPDATE [migrations].[OrganisationTypeMapping]
+        SET OrganisationTypeId = LegacyOrganisationTypeId,
+            OrganisationType   = LEFT(LTRIM(RTRIM(LegacyOrganisationType)), 50),
+            IsMapped           = 1,
+            UpdatedUtc         = SYSUTCDATETIME()
+        WHERE IsMapped = 0
+          AND OrganisationTypeId IS NULL;
+        """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
     private async Task InitialiseStaffGroupJobRoleTypeMappingsAsync(
     CancellationToken cancellationToken)
     {
