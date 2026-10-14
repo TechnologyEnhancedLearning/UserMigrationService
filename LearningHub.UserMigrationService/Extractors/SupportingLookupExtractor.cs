@@ -501,4 +501,32 @@ public class SupportingLookupExtractor : ISupportingLookupExtractor
             };
         }
     }
+    public async Task<IReadOnlyDictionary<int, int>> ExtractJobRoleStaffGroupMapAsync(
+    CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+        SELECT jobRoleId, staffGroupId
+        FROM dbo.jobRoleTBL
+        WHERE staffGroupId IS NOT NULL;
+        """;
+
+        var map = new Dictionary<int, int>();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            map[reader.GetInt32(0)] = reader.GetInt32(1);
+        }
+
+        return map;
+    }
 }

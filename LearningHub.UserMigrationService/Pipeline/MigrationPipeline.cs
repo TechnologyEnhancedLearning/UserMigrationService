@@ -1732,7 +1732,9 @@ TransformAndStageOrganisationsAsync(
                 .ToDictionary(
                     x => x.Key,
                     x => x.First());
-
+        var jobRoleStaffGroupMap =
+             await _supportingLookupExtractor
+                     .ExtractJobRoleStaffGroupMapAsync(cancellationToken);
         foreach (var userBatch in userIds.Chunk(_batchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1763,9 +1765,12 @@ TransformAndStageOrganisationsAsync(
                     continue;
                 }
 
-                if (!mappingDictionary.TryGetValue(
-                    employment.JobRoleId.Value,
-                    out var mapping))
+                if (!jobRoleStaffGroupMap.TryGetValue(
+                        employment.JobRoleId.Value,
+                        out var staffGroupId) ||
+                                 !mappingDictionary.TryGetValue(
+                        staffGroupId,
+                        out var mapping))
                 {
                     statistics.RecordsSkipped++;
                     statistics.RecordsUnmapped++;
@@ -1855,7 +1860,17 @@ TransformAndStageOrganisationsAsync(
                     statistics.RecordsRemoved++;
                 }
             }
+            var beforeDedupe = transformedRecords.Count;
 
+            transformedRecords = transformedRecords
+                .GroupBy(x => new { x.UserId, x.OrganisationId, x.JobRoleTypeId })
+                .Select(g => g
+                    .OrderBy(x => x.RemoveDate.HasValue)
+                    .ThenByDescending(x => x.AmendDate ?? x.CreateDate)
+                    .First())
+                .ToList();
+
+            statistics.RecordsSkipped += beforeDedupe - transformedRecords.Count;
             if (transformedRecords.Count == 0)
             {
                 continue;

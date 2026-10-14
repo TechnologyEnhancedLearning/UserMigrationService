@@ -15,4 +15,6 @@ public interface ISupportingLookupExtractor
             CancellationToken cancellationToken = default);
     IAsyncEnumerable<ElfhSupportingLookup> ExtractStaffGroupsAsync(
     CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, int>> ExtractJobRoleStaffGroupMapAsync(
+    CancellationToken cancellationToken = default);
 }

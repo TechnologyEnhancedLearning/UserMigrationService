@@ -397,7 +397,7 @@ public class StagingRepository : IStagingRepository
                 DbValue(record.AmendUserId),
                 DbValue(record.RemoveDate),
                 DbValue(record.RemoveUserId),
-                record.CreatedUtc);
+                record.CreatedUtc?.UtcDateTime ?? DateTime.UtcNow);
         }
 
         await BulkInsertAsync(
