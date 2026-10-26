@@ -1590,43 +1590,44 @@ TransformAndStageOrganisationTypesAsync(
 
         return statistics;
     }
-    private async Task<MigrationStatistics>
-TransformAndStageOrganisationsAsync(
+    private async Task<MigrationStatistics>TransformAndStageOrganisationsAsync(
     Guid migrationRunId,
     CancellationToken cancellationToken)
     {
-        var statistics =
-            new MigrationStatistics();
+        var statistics = new MigrationStatistics();
 
-        var locationIds =
-            await _learningHubRepository
-                .GetOrganisationLocationIdsToMigrateAsync(
-                    cancellationToken);
+        var locationIds = await _learningHubRepository
+            .GetOrganisationLocationIdsToMigrateAsync(
+                cancellationToken);
 
-        var mappings =
-            await _organisationTypeMappingRepository
-                .GetMappingsAsync(
-                    cancellationToken);
+        var mappings = await _organisationTypeMappingRepository
+            .GetMappingsAsync(cancellationToken);
 
-        var mappingDictionary =
-            mappings.ToDictionary(
-                x => x.LegacyOrganisationTypeId);
+        var mappingDictionary = mappings.ToDictionary(
+            x => x.LegacyOrganisationTypeId);
 
-        foreach (var locationBatch in locationIds.Chunk(_batchSize))
+        // Process locations in batches in the pipeline.
+        foreach (var locationBatch in locationIds
+                     .Distinct()
+                     .Chunk(_batchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Infer regions for the locations in this batch.
+            var inferredRegions =
+                await _legacyRepository.GetInferredOrganisationRegionsAsync(
+                    locationBatch,
+                    cancellationToken);
 
             var transformedRecords =
                 new List<TransformedOrganisation>();
 
-            var organisations =
-                _organisationExtractor.ExtractAsync(
-                    locationBatch,
-                    cancellationToken);
+            var organisations = _organisationExtractor.ExtractAsync(
+                locationBatch,
+                cancellationToken);
 
-            await foreach (
-                var source in organisations
-                    .WithCancellation(cancellationToken))
+            await foreach (var source in organisations
+                               .WithCancellation(cancellationToken))
             {
                 statistics.RecordsRead++;
 
@@ -1651,20 +1652,27 @@ TransformAndStageOrganisationsAsync(
                         source.LocationId,
                         new[]
                         {
-                            $"No mapped Learning Hub OrganisationType exists " +
-                            $"for legacy OrganisationTypeId " +
-                            $"{source.LocationTypeId}."
+                        "No mapped Learning Hub OrganisationType exists " +
+                        $"for legacy OrganisationTypeId {source.LocationTypeId}."
                         },
                         cancellationToken);
 
                     continue;
                 }
 
-                var transformed =
-                    _organisationTransformer.Transform(
-                        source,
-                        mapping,
-                        migrationRunId);
+                var transformed = _organisationTransformer.Transform(
+                    source,
+                    mapping,
+                    migrationRunId);
+
+                // Apply the inferred region to the organisation.
+                // If no region meets the agreed rule, leave it null.
+                transformed.RegionId =
+                    inferredRegions.TryGetValue(
+                        source.LocationId,
+                        out var inferredRegionId)
+                        ? inferredRegionId
+                        : null;
 
                 IReadOnlyList<string> validationErrors =
                     _enableValidation
@@ -1674,12 +1682,13 @@ TransformAndStageOrganisationsAsync(
                 if (validationErrors.Count > 0)
                 {
                     statistics.RecordsFailed++;
+
                     await RecordValidationIssuesAsync(
-                           migrationRunId,
-                           "migrations.Organisation",
-                           source.LocationId,
-                           validationErrors,
-                           cancellationToken);
+                        migrationRunId,
+                        "migrations.Organisations",
+                        source.LocationId,
+                        validationErrors,
+                        cancellationToken);
 
                     foreach (var error in validationErrors)
                     {
@@ -1688,8 +1697,7 @@ TransformAndStageOrganisationsAsync(
                             null,
                             "Warning",
                             "OrganisationTransformer",
-                            $"Legacy Organisation " +
-                            $"{source.LocationId}: {error}");
+                            $"Legacy Organisation {source.LocationId}: {error}");
                     }
 
                     continue;
@@ -1709,8 +1717,7 @@ TransformAndStageOrganisationsAsync(
                     transformedRecords,
                     cancellationToken);
 
-                statistics.RecordsWritten +=
-                    transformedRecords.Count;
+                statistics.RecordsWritten += transformedRecords.Count;
             }
         }
 
