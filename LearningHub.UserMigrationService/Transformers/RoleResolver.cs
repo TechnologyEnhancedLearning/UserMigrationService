@@ -5,7 +5,7 @@ namespace LearningHub.UserMigrationService.Transformers;
 public static class RoleResolver
 {
     private const string UserAdminLocationRoleName =
-        "Local Admin";
+        "Catalogue admin";
 
     private const string UserGroupReporterRoleName =
         "Reporter";

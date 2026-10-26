@@ -252,8 +252,8 @@ namespace LearningHub.UserMigrationService.Repositories
             SELECT
                 Id,
                 Name
-            FROM hub.Role
-            WHERE Deleted = 0;
+            FROM hub.Role;
+            --WHERE Deleted = 0;
             """;
 
                 var roles = new List<RoleReference>();

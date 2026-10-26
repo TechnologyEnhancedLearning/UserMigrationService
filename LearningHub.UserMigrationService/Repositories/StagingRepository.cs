@@ -102,7 +102,7 @@ public class StagingRepository : IStagingRepository
                 DbValue(user.RestrictToSSO),
                 DbValue(user.RequestUserLogout),
                 user.CreateDate,
-                DbValue(user.CreateUserId),
+                DbValue(user.CreateUserId ?? 4),
                 DbValue(user.AmendDate),
                 DbValue(user.AmendUserId),
                 DbValue(user.RemoveDate),

@@ -49,6 +49,8 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IStaffGroupJobRoleTypeMappingRepository _staffGroupJobRoleTypeMappingRepository;
     private readonly IValidationIssueRepository _validationIssueRepository;
 
+    private readonly IFinalLoadService _finalLoadService;
+
     private readonly bool _enableValidation;
     private readonly int _batchSize;
 
@@ -88,6 +90,7 @@ public class MigrationPipeline : IMigrationPipeline
         IStagingRepository stagingRepository,
         IStaffGroupJobRoleTypeMappingRepository staffGroupJobRoleTypeMappingRepository,
         IValidationIssueRepository validationIssueRepository,
+        IFinalLoadService finalLoadService,
         IOptions<MigrationOptions> migrationOptions)
     {
 
@@ -126,6 +129,8 @@ public class MigrationPipeline : IMigrationPipeline
         _stagingRepository = stagingRepository;
         _staffGroupJobRoleTypeMappingRepository = staffGroupJobRoleTypeMappingRepository;
         _validationIssueRepository = validationIssueRepository;
+
+        _finalLoadService = finalLoadService;
 
         _enableValidation =migrationOptions.Value.EnableValidation;
         _batchSize = migrationOptions.Value.BatchSize;
@@ -1074,9 +1079,14 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
+            
             // ==================================================
-            // Step 17 - Validation Summary
+            // Step 18 - Load staged data into Learning Hub tables
             // ==================================================
+
+                await ExecuteFinalLoadAsync(
+                    migrationRunId,
+                    cancellationToken);
 
             // ==================================================
             // Migration completed
@@ -2246,5 +2256,85 @@ TransformAndStageOrganisationsAsync(
         }
 
         return statistics;
+    }
+    private async Task ExecuteFinalLoadAsync(
+    Guid migrationRunId,
+    CancellationToken cancellationToken)
+    {
+        var procedures = new[]
+        {
+        "migrations.MergeUsers",
+        "migrations.MergeOrganisations",
+        "migrations.MergeUserOrganisations",
+        "migrations.MergeUserExternalSystems",
+        "migrations.MergeUserPasswordValidationTokens",
+        "migrations.MergeUserLearningHistoryLogs",
+        "migrations.MergeUserRoles"
+    };
+
+        foreach (var procedureName in procedures)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var stepName = $"Final Load: {procedureName}";
+
+            var stepId = await _migrationLogger.StartStepAsync(
+                migrationRunId,
+                stepName);
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    stepId,
+                    "Information",
+                    "FinalLoadService",
+                    $"Executing stored procedure {procedureName}.");
+
+                var result = await _finalLoadService.ExecuteAsync(
+                    procedureName,
+                    migrationRunId,
+                    cancellationToken);
+
+                var statistics = result.ToMigrationStatistics();
+
+                await _migrationLogger.CompleteStepAsync(
+                    stepId,
+                    statistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    stepId,
+                    "Information",
+                    "FinalLoadService",
+                    $"{procedureName} completed. " +
+                    $"Read: {result.RecordsRead}, " +
+                    $"inserted: {result.RecordsInserted}, " +
+                    $"updated: {result.RecordsUpdated}, " +
+                    $"skipped: {result.RecordsSkipped}, " +
+                    $"failed: {result.RecordsFailed}.");
+
+                if (result.RecordsFailed > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Stored procedure {procedureName} reported " +
+                        $"{result.RecordsFailed} failed records.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(stepId, ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    stepId,
+                    "Error",
+                    "FinalLoadService",
+                    $"Final load failed for {procedureName}.",
+                    ex);
+
+                throw;
+            }
+        }
     }
 }

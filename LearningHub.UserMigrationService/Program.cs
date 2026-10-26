@@ -111,6 +111,7 @@ builder.Services.AddScoped<IStagingRepository, StagingRepository>();
 builder.Services.AddScoped<IStaffGroupJobRoleTypeMappingRepository, StaffGroupJobRoleTypeMappingRepository>();
 builder.Services.AddScoped<IValidationIssueRepository, ValidationIssueRepository>();
 
+builder.Services.AddScoped<IFinalLoadService, FinalLoadService>();
 builder.Services.AddHostedService<MigrationWorker>();
 
 // ------------------------------------------------------
