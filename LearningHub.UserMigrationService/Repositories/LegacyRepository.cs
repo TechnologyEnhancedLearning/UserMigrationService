@@ -198,20 +198,150 @@ namespace LearningHub.UserMigrationService.Repositories
 
             return locationIds;
         }
-        public async Task<Dictionary<int, int?>> GetInferredOrganisationRegionsAsync(
-    IEnumerable<int> locationIds,
-    CancellationToken cancellationToken)
+        public async Task<Dictionary<int, int?>> GetInferredOrganisationRegionsAsync(IEnumerable<int> locationIds,CancellationToken cancellationToken)
+                {
+                    ArgumentNullException.ThrowIfNull(locationIds);
+
+                    var ids = locationIds
+                        .Distinct()
+                        .ToArray();
+
+                    // Return an entry for every requested location.
+                    // Locations without a qualifying region remain null.
+                    var result = ids.ToDictionary(
+                        locationId => locationId,
+                        _ => (int?)null);
+
+                    if (ids.Length == 0)
+                    {
+                        return result;
+                    }
+
+                    var locationIdsJson = JsonSerializer.Serialize(ids);
+
+                    const string sql = """
+                WITH RequestedLocations AS
+                (
+                    SELECT CAST([value] AS INT) AS LocationId
+                    FROM OPENJSON(@LocationIdsJson)
+                ),
+                LocationUsers AS
+                (
+                    -- Users associated through admin locations.
+                    SELECT DISTINCT
+                        ual.adminLocationId AS LocationId,
+                        ual.userId AS UserId
+                    FROM dbo.userAdminLocationTBL AS ual
+                    INNER JOIN RequestedLocations AS rl
+                        ON rl.LocationId = ual.adminLocationId
+                    WHERE ual.deleted = 0
+                      AND ual.adminLocationId IS NOT NULL
+
+                    UNION
+
+                    -- Users associated through employment locations.
+                    SELECT DISTINCT
+                        ue.locationId AS LocationId,
+                        ue.userId AS UserId
+                    FROM dbo.userEmploymentTBL AS ue
+                    INNER JOIN RequestedLocations AS rl
+                        ON rl.LocationId = ue.locationId
+                    WHERE ue.deleted = 0
+                      AND ue.locationId IS NOT NULL
+                ),
+                RankedUsers AS
+                (
+                    SELECT
+                        lu.LocationId,
+                        u.RegionId,
+                        ROW_NUMBER() OVER
+                        (
+                            PARTITION BY lu.LocationId
+                            ORDER BY lu.UserId
+                        ) AS UserNumber
+                    FROM LocationUsers AS lu
+                    INNER JOIN dbo.userTBL AS u
+                        ON u.userId  = lu.UserId
+                ),
+                RegionCounts AS
+                (
+                    SELECT
+                        LocationId,
+                        RegionId,
+                        COUNT(*) AS UserCount
+                    FROM RankedUsers
+                    WHERE UserNumber <= 10
+                      AND RegionId IS NOT NULL
+                    GROUP BY
+                        LocationId,
+                        RegionId
+                ),
+                RankedRegions AS
+                (
+                    SELECT
+                        LocationId,
+                        RegionId,
+                        UserCount,
+                        DENSE_RANK() OVER
+                        (
+                            PARTITION BY LocationId
+                            ORDER BY UserCount DESC
+                        ) AS RegionRank
+                    FROM RegionCounts
+                ),
+                WinningRegions AS
+                (
+                    SELECT
+                        LocationId,
+                        RegionId,
+                        UserCount,
+                        COUNT(*) OVER
+                        (
+                            PARTITION BY LocationId
+                        ) AS NumberOfTiedRegions
+                    FROM RankedRegions
+                    WHERE RegionRank = 1
+                )
+                SELECT
+                    LocationId,
+                    RegionId
+                FROM WinningRegions
+                WHERE UserCount >= 5
+                  AND NumberOfTiedRegions = 1;
+                """;
+
+                    await using var connection = new SqlConnection(_connectionString);
+
+                    await connection.OpenAsync(cancellationToken);
+
+                    await using var command = new SqlCommand(sql, connection);
+
+                    command.Parameters.Add(
+                        "@LocationIdsJson",
+                        SqlDbType.NVarChar,
+                        -1).Value = locationIdsJson;
+
+                    await using var reader =
+                        await command.ExecuteReaderAsync(cancellationToken);
+
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        var locationId = reader.GetInt32(0);
+                        var regionId = reader.GetInt32(1);
+
+                        result[locationId] = regionId;
+                    }
+
+                    return result;
+                }
+        public async Task<Dictionary<int, int?>> GetProfessionalBodyIdsAsync(IEnumerable<int> userIds, CancellationToken cancellationToken)
         {
-            ArgumentNullException.ThrowIfNull(locationIds);
+            ArgumentNullException.ThrowIfNull(userIds);
 
-            var ids = locationIds
-                .Distinct()
-                .ToArray();
+            var ids = userIds.Distinct().ToArray();
 
-            // Return an entry for every requested location.
-            // Locations without a qualifying region remain null.
             var result = ids.ToDictionary(
-                locationId => locationId,
+                id => id,
                 _ => (int?)null);
 
             if (ids.Length == 0)
@@ -219,122 +349,57 @@ namespace LearningHub.UserMigrationService.Repositories
                 return result;
             }
 
-            var locationIdsJson = JsonSerializer.Serialize(ids);
+            var parameters = ids
+                .Select((id, index) => new { id, name = $"@UserId{index}" })
+                .ToArray();
 
-            const string sql = """
-        WITH RequestedLocations AS
-        (
-            SELECT CAST([value] AS INT) AS LocationId
-            FROM OPENJSON(@LocationIdsJson)
-        ),
-        LocationUsers AS
-        (
-            -- Users associated through admin locations.
-            SELECT DISTINCT
-                ual.adminLocationId AS LocationId,
-                ual.userId AS UserId
-            FROM dbo.userAdminLocationTBL AS ual
-            INNER JOIN RequestedLocations AS rl
-                ON rl.LocationId = ual.adminLocationId
-            WHERE ual.deleted = 0
-              AND ual.adminLocationId IS NOT NULL
+            var parameterList = string.Join(
+                ", ",
+                parameters.Select(p => p.name));
 
-            UNION
-
-            -- Users associated through employment locations.
-            SELECT DISTINCT
-                ue.locationId AS LocationId,
-                ue.userId AS UserId
-            FROM dbo.userEmploymentTBL AS ue
-            INNER JOIN RequestedLocations AS rl
-                ON rl.LocationId = ue.locationId
-            WHERE ue.deleted = 0
-              AND ue.locationId IS NOT NULL
-        ),
-        RankedUsers AS
-        (
-            SELECT
-                lu.LocationId,
-                u.RegionId,
-                ROW_NUMBER() OVER
-                (
-                    PARTITION BY lu.LocationId
-                    ORDER BY lu.UserId
-                ) AS UserNumber
-            FROM LocationUsers AS lu
-            INNER JOIN dbo.userTBL AS u
-                ON u.userId  = lu.UserId
-        ),
-        RegionCounts AS
-        (
-            SELECT
-                LocationId,
-                RegionId,
-                COUNT(*) AS UserCount
-            FROM RankedUsers
-            WHERE UserNumber <= 10
-              AND RegionId IS NOT NULL
-            GROUP BY
-                LocationId,
-                RegionId
-        ),
-        RankedRegions AS
-        (
-            SELECT
-                LocationId,
-                RegionId,
-                UserCount,
-                DENSE_RANK() OVER
-                (
-                    PARTITION BY LocationId
-                    ORDER BY UserCount DESC
-                ) AS RegionRank
-            FROM RegionCounts
-        ),
-        WinningRegions AS
-        (
-            SELECT
-                LocationId,
-                RegionId,
-                UserCount,
-                COUNT(*) OVER
-                (
-                    PARTITION BY LocationId
-                ) AS NumberOfTiedRegions
-            FROM RankedRegions
-            WHERE RegionRank = 1
-        )
+            var sql = $"""
         SELECT
-            LocationId,
-            RegionId
-        FROM WinningRegions
-        WHERE UserCount >= 5
-          AND NumberOfTiedRegions = 1;
+            u.userId AS UserId,
+            jr.medicalCouncilId AS ProfessionalBodyId
+        FROM dbo.userTBL AS u
+        LEFT JOIN dbo.userEmploymentTBL AS ue
+            ON ue.userEmploymentId =
+               u.primaryuseremploymentId
+        LEFT JOIN dbo.jobRoleTBL AS jr
+            ON jr.jobRoleId = ue.jobRoleId
+        WHERE u.userId IN ({parameterList});
         """;
 
             await using var connection = new SqlConnection(_connectionString);
-
             await connection.OpenAsync(cancellationToken);
 
             await using var command = new SqlCommand(sql, connection);
 
-            command.Parameters.Add(
-                "@LocationIdsJson",
-                SqlDbType.NVarChar,
-                -1).Value = locationIdsJson;
+            foreach (var parameter in parameters)
+            {
+                command.Parameters.Add(
+                    parameter.name,
+                    SqlDbType.Int).Value = parameter.id;
+            }
 
             await using var reader =
                 await command.ExecuteReaderAsync(cancellationToken);
 
             while (await reader.ReadAsync(cancellationToken))
             {
-                var locationId = reader.GetInt32(0);
-                var regionId = reader.GetInt32(1);
+                var userId = reader.GetInt32(0);
 
-                result[locationId] = regionId;
+                int? professionalBodyId = reader.IsDBNull(1)
+                    ? null
+                    : reader.GetInt32(1);
+
+                result[userId] = professionalBodyId;
             }
 
             return result;
         }
+
+       
+
     }
 }

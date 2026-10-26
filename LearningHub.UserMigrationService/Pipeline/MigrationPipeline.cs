@@ -1217,56 +1217,95 @@ public class MigrationPipeline : IMigrationPipeline
         }
         return statistics;
     }
-    private async Task<MigrationStatistics>
-TransformAndStageUsersAsync(
-    Guid migrationRunId,
-    CancellationToken cancellationToken)
+
+
+    private async Task<MigrationStatistics> TransformAndStageUsersAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
-        var userIds =
-            await _learningHubRepository
-                .GetUserIdsToMigrateAsync(
-                    cancellationToken);
+        var userIds = await _learningHubRepository
+            .GetUserIdsToMigrateAsync(cancellationToken);
+
+        // Load seeded Learning Hub Professional Body IDs once.
+        var professionalBodies = await _learningHubRepository
+            .GetProfessionalBodiesAsync(cancellationToken);
+
+        var professionalBodyIds = professionalBodies
+            .Select(x => x.Id)
+            .ToHashSet();
 
         foreach (var userBatch in userIds.Chunk(_batchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var transformedUsers =
-                new List<TransformedUser>(_batchSize);
-
-            var users =
-                _userExtractor.ExtractAsync(
+            // Key: legacy user ID.
+            // Value: legacy jobRoleTBL.medicalCouncilId.
+            var legacyProfessionalBodyIds =
+                await _legacyRepository.GetProfessionalBodyIdsAsync(
                     userBatch,
                     cancellationToken);
 
-            await foreach (
-                var source in users
-                    .WithCancellation(cancellationToken))
+            var transformedUsers = new List<TransformedUser>(_batchSize);
+
+            var users = _userExtractor.ExtractAsync(
+                userBatch,
+                cancellationToken);
+
+            await foreach (var source in users.WithCancellation(cancellationToken))
             {
                 statistics.RecordsRead++;
 
-                var transformed =
-                    _userTransformer.Transform(
-                        source,
-                        migrationRunId);
+                var transformed = _userTransformer.Transform(
+                    source,
+                    migrationRunId);
 
-                var validationErrors =
-     _enableValidation
-         ? TransformationValidator.Validate(
-             transformed)
-         : Array.Empty<string>();
+                // Resolve the legacy Professional Body ID directly
+                // against the seeded Learning Hub Professional Body IDs.
+                transformed.ProfessionalBodyId = null;
+
+                if (legacyProfessionalBodyIds.TryGetValue(
+                        source.UserId,
+                        out var legacyProfessionalBodyId)
+                    && legacyProfessionalBodyId.HasValue)
+                {
+                    var professionalBodyId = legacyProfessionalBodyId.Value;
+
+                    if (professionalBodyIds.Contains(professionalBodyId))
+                    {
+                        transformed.ProfessionalBodyId = professionalBodyId;
+                    }
+                    else
+                    {
+                        statistics.RecordsUnmapped++;
+
+                        await _migrationLogger.LogAsync(
+                            migrationRunId,
+                            null,
+                            "Warning",
+                            "UserTransformer",
+                            $"Professional Body ID {professionalBodyId} for " +
+                            $"legacy user {source.UserId} does not exist as " +
+                            $"an active record in [hub].[ProfessionalBody].");
+                    }
+                }
+
+                var validationErrors = _enableValidation
+                    ? TransformationValidator.Validate(transformed)
+                    : Array.Empty<string>();
 
                 if (validationErrors.Count > 0)
                 {
                     statistics.RecordsFailed++;
+
                     await RecordValidationIssuesAsync(
-                           migrationRunId,
-                           "migrations.UserTransformer",
-                           source.UserId,
-                           validationErrors,
-                           cancellationToken);
+                        migrationRunId,
+                        "migrations.Users",
+                        source.UserId,
+                        validationErrors,
+                        cancellationToken);
+
                     foreach (var error in validationErrors)
                     {
                         await _migrationLogger.LogAsync(
@@ -1294,8 +1333,7 @@ TransformAndStageUsersAsync(
                     transformedUsers,
                     cancellationToken);
 
-                statistics.RecordsWritten +=
-                    transformedUsers.Count;
+                statistics.RecordsWritten += transformedUsers.Count;
             }
 
             Console.WriteLine(
@@ -1304,6 +1342,8 @@ TransformAndStageUsersAsync(
 
         return statistics;
     }
+
+
     private async Task<MigrationStatistics>
 TransformAndStageUserEmploymentAsync(
     Guid migrationRunId,

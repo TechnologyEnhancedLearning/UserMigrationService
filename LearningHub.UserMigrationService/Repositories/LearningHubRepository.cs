@@ -291,5 +291,34 @@ namespace LearningHub.UserMigrationService.Repositories
 
             return roles;
         }
+
+        public async Task<IReadOnlyList<ProfessionalBody>> GetProfessionalBodiesAsync( CancellationToken cancellationToken = default)
+        {
+            const string sql = """
+        SELECT Id
+        FROM [hub].[ProfessionalBody]
+        WHERE IsActive = 1
+          AND RemoveDate IS NULL;
+        """;
+
+            var professionalBodies = new List<ProfessionalBody>();
+
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                professionalBodies.Add(new ProfessionalBody
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("Id"))
+                });
+            }
+
+            return professionalBodies;
+        }
+
     }
 }
