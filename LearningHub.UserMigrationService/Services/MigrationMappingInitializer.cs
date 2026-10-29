@@ -30,19 +30,14 @@ public class MigrationMappingInitializer
     public async Task InitialiseAsync(
         CancellationToken cancellationToken = default)
     {
-        await InitialiseProfessionalBodyMappingsAsync(
-            cancellationToken);
+        await InitialiseProfessionalBodyMappingsAsync(cancellationToken);
 
-        await InitialiseOrganisationTypeMappingsAsync(
-            cancellationToken);
+        await InitialiseOrganisationTypeMappingsAsync(cancellationToken);
         await ResolveOrganisationTypeMappingsAsync(cancellationToken);
-        await InitialiseUserMappingsAsync(
-       cancellationToken);
+        await InitialiseUserMappingsAsync(cancellationToken);
 
-        await InitialiseOrganisationMappingsAsync(
-            cancellationToken);
-        await InitialiseStaffGroupJobRoleTypeMappingsAsync(
-        cancellationToken);
+        await InitialiseOrganisationMappingsAsync(cancellationToken);
+        await InitialiseStaffGroupJobRoleTypeMappingsAsync(cancellationToken);
         await ResolveStaffGroupJobRoleTypeMappingsAsync(cancellationToken);
     }
     private async Task ResolveStaffGroupJobRoleTypeMappingsAsync(
