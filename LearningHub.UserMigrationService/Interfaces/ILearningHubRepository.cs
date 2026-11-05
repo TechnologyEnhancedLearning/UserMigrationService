@@ -19,5 +19,6 @@ namespace LearningHub.UserMigrationService.Interfaces
        Task<int> InsertOrganisationLocationIdsToMigrateAsync(IEnumerable<int> locationIds,CancellationToken cancellationToken);
        Task<List<RoleReference>> GetRolesAsync(CancellationToken cancellationToken);
         Task<IReadOnlyList<ProfessionalBody>> GetProfessionalBodiesAsync( CancellationToken cancellationToken = default);
+        Task<HashSet<int>> GetOrganisationTypeIdsAsync( CancellationToken cancellationToken);
     } 
 }

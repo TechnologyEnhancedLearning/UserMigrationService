@@ -11,6 +11,17 @@ public class OrganisationTransformer : IOrganisationTransformer
         OrganisationTypeMapping? organisationTypeMapping,
         Guid migrationRunId)
     {
+        return Transform(
+            source,
+            organisationTypeMapping?.OrganisationTypeId ?? 0,
+            migrationRunId);
+    }
+
+    public TransformedOrganisation Transform(
+        ElfhOrganisation source,
+        int organisationTypeId,
+        Guid migrationRunId)
+    {
         ArgumentNullException.ThrowIfNull(source);
 
         var createDate =
@@ -25,7 +36,6 @@ public class OrganisationTransformer : IOrganisationTransformer
             MigrationRunId = migrationRunId,
 
             ElfhLocationId = source.LocationId,
-
             OrganisationId = source.LocationId,
 
             OrganisationName =
@@ -40,30 +50,24 @@ public class OrganisationTransformer : IOrganisationTransformer
                 TransformationValueHelper.NormalizeString(
                     source.PostCode),
 
-            OrganisationTypeId =
-                organisationTypeMapping?.OrganisationTypeId ?? 0,
+            OrganisationTypeId = organisationTypeId,
 
             RegionId = null,
-
             ParentId = source.ParentId,
 
             CreateDate = createDate,
-
             CreateUserId = null,
 
             AmendDate = amendDate,
-
             AmendUserId = source.AmendUserId,
 
-            RemoveDate =
-                source.Deleted
-                    ? amendDate
-                    : null,
+            RemoveDate = source.Deleted
+                ? amendDate
+                : null,
 
-            RemoveUserId =
-                source.Deleted
-                    ? source.AmendUserId
-                    : null,
+            RemoveUserId = source.Deleted
+                ? source.AmendUserId
+                : null,
 
             CreatedUtc = DateTime.UtcNow
         };

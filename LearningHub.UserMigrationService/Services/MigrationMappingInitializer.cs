@@ -30,10 +30,10 @@ public class MigrationMappingInitializer
     public async Task InitialiseAsync(
         CancellationToken cancellationToken = default)
     {
-        await InitialiseProfessionalBodyMappingsAsync(cancellationToken);
+        //await InitialiseProfessionalBodyMappingsAsync(cancellationToken);
 
-        await InitialiseOrganisationTypeMappingsAsync(cancellationToken);
-        await ResolveOrganisationTypeMappingsAsync(cancellationToken);
+        //await InitialiseOrganisationTypeMappingsAsync(cancellationToken);
+        //await ResolveOrganisationTypeMappingsAsync(cancellationToken);
         await InitialiseUserMappingsAsync(cancellationToken);
 
         await InitialiseOrganisationMappingsAsync(cancellationToken);
@@ -143,117 +143,6 @@ public class MigrationMappingInitializer
                 (object?)legacyStaffGroupName ?? DBNull.Value);
 
             await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-    }
-    private async Task InitialiseProfessionalBodyMappingsAsync(
-    CancellationToken cancellationToken)
-    {
-        const string existsSql = """
-        SELECT COUNT(1)
-        FROM [migrations].[ProfessionalBodyMapping]
-        WHERE LegacyProfessionalBodyId =
-              @LegacyProfessionalBodyId;
-        """;
-
-        const string insertSql = """
-        INSERT INTO [migrations].[ProfessionalBodyMapping]
-        (
-            LegacyProfessionalBodyId,
-            LegacyProfessionalBody,
-            ProfessionalBodyId,
-            ProfessionalBody,
-            IsMapped,
-            CreatedUtc
-        )
-        VALUES
-        (
-            @LegacyProfessionalBodyId,
-            @LegacyProfessionalBody,
-            NULL,
-            @ProfessionalBody,
-            0,
-            SYSUTCDATETIME()
-        );
-        """;
-
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(
-            cancellationToken);
-
-        await foreach (
-            var source in
-            _professionalBodyExtractor
-                .ExtractAsync(cancellationToken)
-                .WithCancellation(cancellationToken))
-        {
-            if (source.ProfessionalBodyId <= 0)
-            {
-                continue;
-            }
-
-            var legacyProfessionalBody =
-                string.IsNullOrWhiteSpace(source.ProfessionalBody)
-                    ? $"Legacy Professional Body {source.ProfessionalBodyId}"
-                    : source.ProfessionalBody.Trim();
-
-            await using var existsCommand =
-                new SqlCommand(
-                    existsSql,
-                    connection);
-
-            existsCommand.Parameters.Add(
-                new SqlParameter(
-                    "@LegacyProfessionalBodyId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value = source.ProfessionalBodyId
-                });
-
-            var exists =
-                Convert.ToInt32(
-                    await existsCommand.ExecuteScalarAsync(
-                        cancellationToken));
-
-            if (exists > 0)
-            {
-                continue;
-            }
-
-            await using var insertCommand =
-                new SqlCommand(
-                    insertSql,
-                    connection);
-
-            insertCommand.Parameters.Add(
-                new SqlParameter(
-                    "@LegacyProfessionalBodyId",
-                    System.Data.SqlDbType.Int)
-                {
-                    Value = source.ProfessionalBodyId
-                });
-
-            insertCommand.Parameters.Add(
-                new SqlParameter(
-                    "@LegacyProfessionalBody",
-                    System.Data.SqlDbType.NVarChar,
-                    100)
-                {
-                    Value = legacyProfessionalBody
-                });
-
-            insertCommand.Parameters.Add(
-                new SqlParameter(
-                    "@ProfessionalBody",
-                    System.Data.SqlDbType.NVarChar,
-                    100)
-                {
-                    Value = legacyProfessionalBody
-                });
-
-            await insertCommand.ExecuteNonQueryAsync(
-                cancellationToken);
         }
     }
     private async Task InitialiseOrganisationTypeMappingsAsync(

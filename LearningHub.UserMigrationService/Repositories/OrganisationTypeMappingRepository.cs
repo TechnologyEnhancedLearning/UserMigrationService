@@ -1,4 +1,5 @@
-﻿using LearningHub.UserMigrationService.Configuration;
+﻿
+using LearningHub.UserMigrationService.Configuration;
 using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Models.Transformation;
 using Microsoft.Data.SqlClient;
@@ -9,6 +10,8 @@ namespace LearningHub.UserMigrationService.Repositories;
 public class OrganisationTypeMappingRepository
     : IOrganisationTypeMappingRepository
 {
+    private const int FallbackOrganisationTypeId = 23;
+
     private readonly string _connectionString;
 
     public OrganisationTypeMappingRepository(
@@ -23,117 +26,96 @@ public class OrganisationTypeMappingRepository
             CancellationToken cancellationToken = default)
     {
         const string sql = """
+            IF NOT EXISTS
+            (
+                SELECT 1
+                FROM [hub].[OrganisationType]
+                WHERE [Id] = @FallbackOrganisationTypeId
+            )
+            BEGIN
+                THROW 50001,
+                    'Fallback OrganisationTypeId 23 does not exist in hub.OrganisationType.',
+                    1;
+            END;
+
             SELECT
-                Id,
-                LegacyOrganisationTypeId,
-                LegacyOrganisationType,
-                OrganisationTypeId,
-                OrganisationType,
-                IsMapped,
-                CreatedUtc,
-                UpdatedUtc
-            FROM [migrations].[OrganisationTypeMapping]
-            ORDER BY
-                LegacyOrganisationTypeId;
+                mapping.Id,
+                mapping.LegacyOrganisationTypeId,
+                mapping.LegacyOrganisationType,
+
+                CASE
+                    WHEN mapping.MappingConfidence = 3
+                        THEN @FallbackOrganisationTypeId
+
+                    WHEN destination.Id IS NULL
+                        THEN @FallbackOrganisationTypeId
+
+                    ELSE mapping.OrganisationTypeId
+                END AS OrganisationTypeId,
+
+                mapping.OrganisationType,
+                mapping.MappingConfidence,
+                mapping.CreatedUtc,
+                mapping.UpdatedUtc
+
+            FROM [migrations].[OrganisationTypeMapping] mapping
+
+            LEFT JOIN [hub].[OrganisationType] destination
+                ON destination.Id = mapping.OrganisationTypeId
+
+            ORDER BY mapping.LegacyOrganisationTypeId;
             """;
 
-        var results =
-            new List<OrganisationTypeMapping>();
+        var results = new List<OrganisationTypeMapping>();
 
         await using var connection =
             new SqlConnection(_connectionString);
 
-        await connection.OpenAsync(
-            cancellationToken);
+        await connection.OpenAsync(cancellationToken);
 
-        await using var command =
-            new SqlCommand(sql, connection)
-            {
-                CommandTimeout = 0
-            };
+        await using var command = new SqlCommand(sql, connection)
+        {
+            CommandTimeout = 0
+        };
+
+        command.Parameters.AddWithValue(
+            "@FallbackOrganisationTypeId",
+            FallbackOrganisationTypeId);
 
         await using var reader =
-            await command.ExecuteReaderAsync(
-                cancellationToken);
+            await command.ExecuteReaderAsync(cancellationToken);
 
-        var idOrdinal =
-            reader.GetOrdinal("Id");
-
-        var legacyIdOrdinal =
-            reader.GetOrdinal(
-                "LegacyOrganisationTypeId");
-
-        var legacyNameOrdinal =
-            reader.GetOrdinal(
-                "LegacyOrganisationType");
-
-        var organisationTypeIdOrdinal =
-            reader.GetOrdinal(
-                "OrganisationTypeId");
-
-        var organisationTypeOrdinal =
-            reader.GetOrdinal(
-                "OrganisationType");
-
-        var isMappedOrdinal =
-            reader.GetOrdinal("IsMapped");
-
-        var createdUtcOrdinal =
-            reader.GetOrdinal("CreatedUtc");
-
-        var updatedUtcOrdinal =
-            reader.GetOrdinal("UpdatedUtc");
-
-        while (await reader.ReadAsync(
-            cancellationToken))
+        while (await reader.ReadAsync(cancellationToken))
         {
-            results.Add(
-                new OrganisationTypeMapping
-                {
-                    Id =
-                        reader.GetInt32(
-                            idOrdinal),
+            results.Add(new OrganisationTypeMapping
+            {
+                Id = reader.GetInt32(
+                    reader.GetOrdinal("Id")),
 
-                    LegacyOrganisationTypeId =
-                        reader.GetInt32(
-                            legacyIdOrdinal),
+                LegacyOrganisationTypeId = reader.GetInt32(
+                    reader.GetOrdinal("LegacyOrganisationTypeId")),
 
-                    LegacyOrganisationType =
-                        reader.IsDBNull(
-                            legacyNameOrdinal)
-                            ? null
-                            : reader.GetString(
-                                legacyNameOrdinal),
+                LegacyOrganisationType = reader.GetString(
+                    reader.GetOrdinal("LegacyOrganisationType")),
 
-                    OrganisationTypeId =
-                        reader.IsDBNull(
-                            organisationTypeIdOrdinal)
-                            ? null
-                            : reader.GetInt32(
-                                organisationTypeIdOrdinal),
+                OrganisationTypeId = reader.GetInt32(
+                    reader.GetOrdinal("OrganisationTypeId")),
 
-                    OrganisationType =
-                        reader.IsDBNull(
-                            organisationTypeOrdinal)
-                            ? null
-                            : reader.GetString(
-                                organisationTypeOrdinal),
+                OrganisationType = reader.GetString(
+                    reader.GetOrdinal("OrganisationType")),
 
-                    IsMapped =
-                        reader.GetBoolean(
-                            isMappedOrdinal),
+                MappingConfidence = reader.GetInt32(
+                    reader.GetOrdinal("MappingConfidence")),
 
-                    CreatedUtc =
-                        reader.GetDateTime(
-                            createdUtcOrdinal),
+                CreatedUtc = reader.GetDateTime(
+                    reader.GetOrdinal("CreatedUtc")),
 
-                    UpdatedUtc =
-                        reader.IsDBNull(
-                            updatedUtcOrdinal)
-                            ? null
-                            : reader.GetDateTime(
-                                updatedUtcOrdinal)
-                });
+                UpdatedUtc = reader.IsDBNull(
+                    reader.GetOrdinal("UpdatedUtc"))
+                    ? null
+                    : reader.GetDateTime(
+                        reader.GetOrdinal("UpdatedUtc"))
+            });
         }
 
         return results;

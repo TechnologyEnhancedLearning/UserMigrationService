@@ -1,4 +1,5 @@
-﻿namespace LearningHub.UserMigrationService.Models.Transformation;
+﻿
+namespace LearningHub.UserMigrationService.Models.Transformation;
 
 public class OrganisationTypeMapping
 {
@@ -6,13 +7,13 @@ public class OrganisationTypeMapping
 
     public int LegacyOrganisationTypeId { get; set; }
 
-    public string? LegacyOrganisationType { get; set; }
+    public string LegacyOrganisationType { get; set; } = string.Empty;
 
-    public int? OrganisationTypeId { get; set; }
+    public int OrganisationTypeId { get; set; }
 
-    public string? OrganisationType { get; set; }
+    public string OrganisationType { get; set; } = string.Empty;
 
-    public bool IsMapped { get; set; }
+    public int MappingConfidence { get; set; }
 
     public DateTime CreatedUtc { get; set; }
 

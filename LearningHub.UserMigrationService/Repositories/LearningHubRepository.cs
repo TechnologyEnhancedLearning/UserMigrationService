@@ -295,7 +295,9 @@ namespace LearningHub.UserMigrationService.Repositories
         public async Task<IReadOnlyList<ProfessionalBody>> GetProfessionalBodiesAsync( CancellationToken cancellationToken = default)
         {
             const string sql = """
-        SELECT Id
+        SELECT
+            Id,
+            ProfessionalBody
         FROM [hub].[ProfessionalBody]
         WHERE IsActive = 1
           AND RemoveDate IS NULL;
@@ -313,12 +315,37 @@ namespace LearningHub.UserMigrationService.Repositories
             {
                 professionalBodies.Add(new ProfessionalBody
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id"))
+                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                    ProfessionalBodyName = reader.GetString(
+                        reader.GetOrdinal("ProfessionalBody"))
                 });
             }
 
             return professionalBodies;
         }
+        public async Task<HashSet<int>> GetOrganisationTypeIdsAsync(
+    CancellationToken cancellationToken)
+        {
+
+            const string sql = """
+        SELECT [Id]
+        FROM [hub].[OrganisationType];
+        """;
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var ids = new HashSet<int>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                ids.Add(reader.GetInt32(0));
+            }
+
+            return ids;
+        }
 
     }
 }
+
+                  

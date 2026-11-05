@@ -3,6 +3,7 @@ using LearningHub.UserMigrationService.Interfaces;
 using LearningHub.UserMigrationService.Interfaces.Extractors;
 using LearningHub.UserMigrationService.Interfaces.Transformers;
 using LearningHub.UserMigrationService.Models;
+using LearningHub.UserMigrationService.Models.Extraction;
 using LearningHub.UserMigrationService.Models.Transformation;
 using LearningHub.UserMigrationService.Services;
 using LearningHub.UserMigrationService.Transformers;
@@ -43,7 +44,6 @@ public class MigrationPipeline : IMigrationPipeline
 
     private readonly ILearningHubRepository _learningHubRepository;
     private readonly ILegacyRepository _legacyRepository;
-    private readonly IProfessionalBodyMappingRepository _professionalBodyMappingRepository;
     private readonly IStagingRepository _stagingRepository;
     private readonly IOrganisationTypeMappingRepository _organisationTypeMappingRepository;
     private readonly IStaffGroupJobRoleTypeMappingRepository _staffGroupJobRoleTypeMappingRepository;
@@ -86,7 +86,6 @@ public class MigrationPipeline : IMigrationPipeline
         ILegacyRepository legacyRepository,
         ILearningHubRepository learningHubRepository,
         IOrganisationTypeMappingRepository organisationTypeMappingRepository,
-        IProfessionalBodyMappingRepository professionalBodyMappingRepository,
         IStagingRepository stagingRepository,
         IStaffGroupJobRoleTypeMappingRepository staffGroupJobRoleTypeMappingRepository,
         IValidationIssueRepository validationIssueRepository,
@@ -121,11 +120,9 @@ public class MigrationPipeline : IMigrationPipeline
         _userMigrationSelectionService = userMigrationSelectionService;
         _organisationMigrationSelectionService = organisationMigrationSelectionService;
         _supportingUserTablesMigrationService = supportingUserTablesMigrationService;
-
         _organisationTypeMappingRepository = organisationTypeMappingRepository;
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
-        _professionalBodyMappingRepository = professionalBodyMappingRepository;
         _stagingRepository = stagingRepository;
         _staffGroupJobRoleTypeMappingRepository = staffGroupJobRoleTypeMappingRepository;
         _validationIssueRepository = validationIssueRepository;
@@ -433,58 +430,7 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-            // ==================================================
-            // Step 5 - Transform and stage Professional Bodies
-            // ==================================================
-
-            var professionalBodyStepId =
-                await _migrationLogger.StartStepAsync(
-                    migrationRunId,
-                    "Transform and Stage Professional Bodies");
-
-            try
-            {
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    professionalBodyStepId,
-                    "Information",
-                    "ProfessionalBodyTransformer",
-                    "Starting Professional Body extraction, transformation and staging.");
-
-                var professionalBodyStatistics = await TransformAndStageProfessionalBodiesAsync(
-                     migrationRunId,
-                     cancellationToken);
-
-                await _migrationLogger.CompleteStepAsync(
-                    professionalBodyStepId,
-                    professionalBodyStatistics);
-
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    professionalBodyStepId,
-                    "Information",
-                    "ProfessionalBodyTransformer",
-                    "Professional Body extraction, transformation and staging completed.");
-
-                Console.WriteLine(
-                    "Professional Body transformation and staging completed.");
-            }
-            catch (Exception ex)
-            {
-                await _migrationLogger.FailStepAsync(
-                    professionalBodyStepId,
-                    ex);
-
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    professionalBodyStepId,
-                    "Error",
-                    "ProfessionalBodyTransformer",
-                    "Professional Body transformation and staging failed.",
-                    ex);
-
-                throw;
-            }
+           
 
             // ==================================================
             // Step 6 - Transform and stage Users
@@ -756,59 +702,7 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-            // ==================================================
-            // Step 10 - Transform and stage Organisation Types
-            // ==================================================
-
-            var organisationTypeStepId =
-                await _migrationLogger.StartStepAsync(
-                    migrationRunId,
-                    "Transform and Stage Organisation Types");
-
-            try
-            {
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    organisationTypeStepId,
-                    "Information",
-                    "OrganisationTypeTransformer",
-                    "Starting Organisation Type extraction, transformation and staging.");
-
-                var organisationTypeStatistics =
-                    await TransformAndStageOrganisationTypesAsync(
-                        migrationRunId,
-                        cancellationToken);
-
-                await _migrationLogger.CompleteStepAsync(
-                    organisationTypeStepId,
-                    organisationTypeStatistics);
-
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    organisationTypeStepId,
-                    "Information",
-                    "OrganisationTypeTransformer",
-                    "Organisation Type extraction, transformation and staging completed.");
-
-                Console.WriteLine(
-                    "Organisation Type transformation and staging completed.");
-            }
-            catch (Exception ex)
-            {
-                await _migrationLogger.FailStepAsync(
-                    organisationTypeStepId,
-                    ex);
-
-                await _migrationLogger.LogAsync(
-                    migrationRunId,
-                    organisationTypeStepId,
-                    "Error",
-                    "OrganisationTypeTransformer",
-                    "Organisation Type transformation and staging failed.",
-                    ex);
-
-                throw;
-            }
+           
             // ==================================================
             // Step 11 - Transform and stage GDC Registers
             // ==================================================
@@ -918,7 +812,7 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
 
-
+            
             // ==================================================
             // Step 13 - Transform and stage Organisations
             // ==================================================
@@ -1125,98 +1019,7 @@ public class MigrationPipeline : IMigrationPipeline
             throw;
         }
     }
-    private async Task<MigrationStatistics>
-    TransformAndStageProfessionalBodiesAsync(
-        Guid migrationRunId,
-        CancellationToken cancellationToken)
-    {
-        var statistics = new MigrationStatistics();
-
-        var professionalBodies =
-            _professionalBodyExtractor
-                .ExtractAsync(cancellationToken);
-
-        var mappings =
-            await _professionalBodyMappingRepository
-                .GetMappingsAsync(cancellationToken);
-
-        var mappingDictionary =
-            mappings.ToDictionary(
-                x => x.LegacyProfessionalBodyId);
-        var transformedRecords =
-   new List<TransformedProfessionalBody>();
-        await foreach (
-            var source in professionalBodies
-                .WithCancellation(cancellationToken))
-        {
-            statistics.RecordsRead++;
-
-            mappingDictionary.TryGetValue(
-                source.ProfessionalBodyId,
-                out var mapping);
-
-            var transformed =
-                _professionalBodyTransformer.Transform(
-                    source,
-                    mapping,
-                    migrationRunId);
-
-            var validationErrors =
-    _enableValidation
-        ? TransformationValidator.Validate(
-            transformed)
-        : Array.Empty<string>();
-
-            if (validationErrors.Count > 0)
-            {
-                statistics.RecordsFailed++;
-
-                await RecordValidationIssuesAsync(
-                    migrationRunId,
-                    "migrations.ProfessionalBody",
-                    source.ProfessionalBodyId,
-                    validationErrors,
-                    cancellationToken);
-
-                foreach (var error in validationErrors)
-                {
-                    await _migrationLogger.LogAsync(
-                        migrationRunId,
-                        null,
-                        "Warning",
-                        "ProfessionalBodyTransformer",
-                        $"Legacy Professional Body " +
-                        $"{source.ProfessionalBodyId}: {error}");
-                }
-
-                continue;
-            }
-
-            transformedRecords.Add(transformed);
-
-            if (transformedRecords.Count >= _batchSize)
-            {
-                await _stagingRepository.InsertProfessionalBodiesAsync(
-                    transformedRecords,
-                    cancellationToken);
-
-                statistics.RecordsWritten +=
-                    transformedRecords.Count;
-
-                transformedRecords.Clear();
-            }
-        }
-        if (transformedRecords.Count > 0)
-        {
-            await _stagingRepository.InsertProfessionalBodiesAsync(
-                transformedRecords,
-                cancellationToken);
-
-            statistics.RecordsWritten +=
-                transformedRecords.Count;
-        }
-        return statistics;
-    }
+    
 
 
     private async Task<MigrationStatistics> TransformAndStageUsersAsync(
@@ -1228,13 +1031,10 @@ public class MigrationPipeline : IMigrationPipeline
         var userIds = await _learningHubRepository
             .GetUserIdsToMigrateAsync(cancellationToken);
 
-        // Load seeded Learning Hub Professional Body IDs once.
-        var professionalBodies = await _learningHubRepository
-            .GetProfessionalBodiesAsync(cancellationToken);
-
-        var professionalBodyIds = professionalBodies
-            .Select(x => x.Id)
-            .ToHashSet();
+        // Build legacy ID -> actual Learning Hub Professional Body ID.
+        var professionalBodyIdMap =
+            await BuildProfessionalBodyIdMapAsync(
+                cancellationToken);
 
         foreach (var userBatch in userIds.Chunk(_batchSize))
         {
@@ -1270,11 +1070,13 @@ public class MigrationPipeline : IMigrationPipeline
                         out var legacyProfessionalBodyId)
                     && legacyProfessionalBodyId.HasValue)
                 {
-                    var professionalBodyId = legacyProfessionalBodyId.Value;
+                    var legacyId = legacyProfessionalBodyId.Value;
 
-                    if (professionalBodyIds.Contains(professionalBodyId))
+                    if (professionalBodyIdMap.TryGetValue(
+                            legacyId,
+                            out var destinationId))
                     {
-                        transformed.ProfessionalBodyId = professionalBodyId;
+                        transformed.ProfessionalBodyId = destinationId;
                     }
                     else
                     {
@@ -1285,9 +1087,9 @@ public class MigrationPipeline : IMigrationPipeline
                             null,
                             "Warning",
                             "UserTransformer",
-                            $"Professional Body ID {professionalBodyId} for " +
-                            $"legacy user {source.UserId} does not exist as " +
-                            $"an active record in [hub].[ProfessionalBody].");
+                            $"No Learning Hub Professional Body mapping exists " +
+                            $"for legacy Professional Body ID {legacyId}, " +
+                            $"used by legacy user {source.UserId}.");
                     }
                 }
 
@@ -1513,41 +1315,40 @@ TransformAndStageUserGroupReportersAsync(
         return statistics;
     }
     private async Task<MigrationStatistics>
-TransformAndStageOrganisationTypesAsync(
-    Guid migrationRunId,
-    CancellationToken cancellationToken)
+    TransformAndStageOrganisationTypesAsync(
+        Guid migrationRunId,
+        CancellationToken cancellationToken)
     {
-        var statistics =
-            new MigrationStatistics();
+        var statistics = new MigrationStatistics();
 
-        var mappings =
-            await _organisationTypeMappingRepository
-                .GetMappingsAsync(
-                    cancellationToken);
+        var mappings = await _organisationTypeMappingRepository
+            .GetMappingsAsync(cancellationToken);
 
-        var mappingDictionary =
-            mappings.ToDictionary(
-                x => x.LegacyOrganisationTypeId);
+        var mappingDictionary = mappings.ToDictionary(
+            x => x.LegacyOrganisationTypeId);
 
         var organisationTypes =
-            _supportingLookupExtractor
-                .ExtractOrganisationTypesAsync(
-                    cancellationToken);
+            _supportingLookupExtractor.ExtractOrganisationTypesAsync(
+                cancellationToken);
 
         var transformedRecords =
             new List<TransformedOrganisationType>();
 
-        await foreach (
-            var source in organisationTypes
-                .WithCancellation(cancellationToken))
+        // Log each missing or low-confidence legacy type only once.
+        var loggedLegacyTypeIds = new HashSet<int>();
+
+        await foreach (var source in organisationTypes
+            .WithCancellation(cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             statistics.RecordsRead++;
 
-            mappingDictionary.TryGetValue(
-                source.Id,
-                out var mapping);
+            mappingDictionary.TryGetValue(source.Id, out var mapping);
 
-            if (mapping is null || !mapping.IsMapped)
+            var isMapped = mapping is not null;
+
+            if (!isMapped && loggedLegacyTypeIds.Add(source.Id))
             {
                 statistics.RecordsUnmapped++;
 
@@ -1557,43 +1358,30 @@ TransformAndStageOrganisationTypesAsync(
                     "Warning",
                     "OrganisationTypeTransformer",
                     $"Legacy Organisation Type {source.Id} " +
-                    $"('{source.Name}') does not have a valid Learning Hub mapping.");
+                    $"('{source.Name}') does not have a mapping.");
             }
 
-            var transformed =
-                _organisationTypeTransformer.Transform(
-                    source,
-                    mapping?.OrganisationTypeId,
-                    mapping?.OrganisationType,
-                    mapping?.IsMapped ?? false,
-                    migrationRunId);
+            var transformed = _organisationTypeTransformer.Transform(
+                source,
+                mapping?.OrganisationTypeId,
+                mapping?.OrganisationType,
+                isMapped,
+                migrationRunId);
 
-            var validationErrors =
-                _enableValidation
-                    ? TransformationValidator.Validate(
-                        transformed)
-                    : Array.Empty<string>();
+            var validationErrors = _enableValidation
+                ? TransformationValidator.Validate(transformed)
+                : Array.Empty<string>();
 
             if (validationErrors.Count > 0)
             {
                 statistics.RecordsFailed++;
-                await RecordValidationIssuesAsync(
-                       migrationRunId,
-                       "migrations.OrganisationType",
-                       source.Id,
-                       validationErrors,
-                       cancellationToken);
 
-                foreach (var error in validationErrors)
-                {
-                    await _migrationLogger.LogAsync(
-                        migrationRunId,
-                        null,
-                        "Warning",
-                        "OrganisationTypeTransformer",
-                        $"Legacy Organisation Type " +
-                        $"{source.Id}: {error}");
-                }
+                await RecordValidationIssuesAsync(
+                    migrationRunId,
+                    "migrations.OrganisationType",
+                    source.Id,
+                    validationErrors,
+                    cancellationToken);
 
                 continue;
             }
@@ -1611,8 +1399,7 @@ TransformAndStageOrganisationTypesAsync(
                     transformedRecords,
                     cancellationToken);
 
-                statistics.RecordsWritten +=
-                    transformedRecords.Count;
+                statistics.RecordsWritten += transformedRecords.Count;
 
                 transformedRecords.Clear();
             }
@@ -1624,36 +1411,55 @@ TransformAndStageOrganisationTypesAsync(
                 transformedRecords,
                 cancellationToken);
 
-            statistics.RecordsWritten +=
-                transformedRecords.Count;
+            statistics.RecordsWritten += transformedRecords.Count;
         }
 
         return statistics;
     }
-    private async Task<MigrationStatistics>TransformAndStageOrganisationsAsync(
+    private async Task<MigrationStatistics> TransformAndStageOrganisationsAsync(
     Guid migrationRunId,
     CancellationToken cancellationToken)
     {
         var statistics = new MigrationStatistics();
 
-        var locationIds = await _learningHubRepository
-            .GetOrganisationLocationIdsToMigrateAsync(
-                cancellationToken);
+        const int fallbackOrganisationTypeId = 23;
 
+        // Get valid Organisation Type IDs from Learning Hub.
+        var validOrganisationTypeIds =
+            (await _learningHubRepository.GetOrganisationTypeIdsAsync(
+                cancellationToken)).ToHashSet();
+
+        // Check that the agreed fallback exists.
+        if (!validOrganisationTypeIds.Contains(fallbackOrganisationTypeId))
+        {
+            throw new InvalidOperationException(
+                $"Fallback Organisation Type ID {fallbackOrganisationTypeId} " +
+                "does not exist in hub.OrganisationType.");
+        }
+
+        // Load the mapping table once.
         var mappings = await _organisationTypeMappingRepository
             .GetMappingsAsync(cancellationToken);
 
-        var mappingDictionary = mappings.ToDictionary(
-            x => x.LegacyOrganisationTypeId);
+        // Ignore legacy ID 0 because it represents an unknown type.
+        var mappingDictionary = mappings
+            .Where(x => x.LegacyOrganisationTypeId > 0)
+            .ToDictionary(x => x.LegacyOrganisationTypeId);
 
-        // Process locations in batches in the pipeline.
+        // Get the organisation locations selected for migration.
+        var locationIds = await _learningHubRepository
+            .GetOrganisationLocationIdsToMigrateAsync(cancellationToken);
+
+        // Avoid generating repeated log entries for the same legacy type.
+        var loggedManualReviewTypes = new HashSet<int>();
+
         foreach (var locationBatch in locationIds
-                     .Distinct()
-                     .Chunk(_batchSize))
+            .Distinct()
+            .Chunk(_batchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Infer regions for the locations in this batch.
+            // Infer regions for this batch.
             var inferredRegions =
                 await _legacyRepository.GetInferredOrganisationRegionsAsync(
                     locationBatch,
@@ -1667,46 +1473,74 @@ TransformAndStageOrganisationTypesAsync(
                 cancellationToken);
 
             await foreach (var source in organisations
-                               .WithCancellation(cancellationToken))
+                .WithCancellation(cancellationToken))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 statistics.RecordsRead++;
 
-                OrganisationTypeMapping? mapping = null;
+                // Default to the agreed fallback Organisation Type ID.
+                var organisationTypeId = fallbackOrganisationTypeId;
+                var requiresManualReview = true;
 
-                if (source.LocationTypeId.HasValue)
-                {
+                var legacyOrganisationTypeId =
+                    source.LocationTypeId.GetValueOrDefault();
+
+                // Resolve the mapping when a valid legacy ID is available.
+                if (legacyOrganisationTypeId > 0 &&
                     mappingDictionary.TryGetValue(
-                        source.LocationTypeId.Value,
-                        out mapping);
+                        legacyOrganisationTypeId,
+                        out var mapping))
+                {
+                    // Only accept high/medium-confidence mappings.
+                    if (mapping.MappingConfidence is 1 or 2 &&
+                        validOrganisationTypeIds.Contains(
+                            mapping.OrganisationTypeId))
+                    {
+                        organisationTypeId = mapping.OrganisationTypeId;
+                        requiresManualReview = false;
+                    }
                 }
 
-                if (mapping is null ||
-                    !mapping.IsMapped ||
-                    !mapping.OrganisationTypeId.HasValue)
+                // Record unmapped, low-confidence and invalid mappings.
+                if (requiresManualReview)
                 {
                     statistics.RecordsUnmapped++;
 
-                    await RecordValidationIssuesAsync(
-                        migrationRunId,
-                        "migrations.Organisations",
-                        source.LocationId,
-                        new[]
-                        {
-                        "No mapped Learning Hub OrganisationType exists " +
-                        $"for legacy OrganisationTypeId {source.LocationTypeId}."
-                        },
-                        cancellationToken);
+                    // Log once per legacy type rather than once per organisation.
+                    if (loggedManualReviewTypes.Add(
+                        legacyOrganisationTypeId))
+                    {
+                        var message =
+                            $"Organisation type requires manual review. " +
+                            $"Legacy LocationTypeId: " +
+                            $"{source.LocationTypeId?.ToString() ?? "NULL"}. " +
+                            $"Assigned fallback OrganisationType ID " +
+                            $"{fallbackOrganisationTypeId}.";
 
-                    continue;
+                        await _migrationLogger.LogAsync(
+                            migrationRunId,
+                            null,
+                            "Warning",
+                            "OrganisationTransformer",
+                            message);
+
+                        await RecordValidationIssuesAsync(
+                            migrationRunId,
+                            "migrations.Organisations",
+                            source.LocationId,
+                            new[] { message },
+                            cancellationToken);
+                    }
                 }
 
+                // Transform the organisation using the resolved type ID.
                 var transformed = _organisationTransformer.Transform(
                     source,
-                    mapping,
+                    organisationTypeId,
                     migrationRunId);
 
-                // Apply the inferred region to the organisation.
-                // If no region meets the agreed rule, leave it null.
+                // Apply the inferred region.
                 transformed.RegionId =
                     inferredRegions.TryGetValue(
                         source.LocationId,
@@ -1714,10 +1548,10 @@ TransformAndStageOrganisationTypesAsync(
                         ? inferredRegionId
                         : null;
 
-                IReadOnlyList<string> validationErrors =
-                    _enableValidation
-                        ? TransformationValidator.Validate(transformed)
-                        : Array.Empty<string>();
+                // Validate the transformed organisation.
+                var validationErrors = _enableValidation
+                    ? TransformationValidator.Validate(transformed)
+                    : Array.Empty<string>();
 
                 if (validationErrors.Count > 0)
                 {
@@ -1751,6 +1585,7 @@ TransformAndStageOrganisationTypesAsync(
                 }
             }
 
+            // Insert the transformed organisations into staging.
             if (transformedRecords.Count > 0)
             {
                 await _stagingRepository.InsertOrganisationsAsync(
@@ -2383,5 +2218,132 @@ TransformAndStageOrganisationTypesAsync(
                 throw;
             }
         }
+    }
+    private async Task<Dictionary<int, int>>
+    BuildProfessionalBodyIdMapAsync(
+        CancellationToken cancellationToken)
+    {
+        var destinationBodies =
+            await _learningHubRepository
+                .GetProfessionalBodiesAsync(cancellationToken);
+
+        static string Normalize(string? value) =>
+            new string(
+                (value ?? string.Empty)
+                    .Where(char.IsLetterOrDigit)
+                    .Select(char.ToUpperInvariant)
+                    .ToArray());
+
+        // Destination lookup: normalized name -> actual LH ID.
+        var destinationByName = destinationBodies
+            .GroupBy(x => Normalize(x.ProfessionalBodyName))
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().Id);
+
+        // Explicit aliases for known legacy names/codes.
+        // Add further aliases only after checking the source data.
+        var aliases = new Dictionary<string, string>
+        {
+            [Normalize("GMC")] =
+                Normalize("General Medical Council (GMC)"),
+
+            [Normalize("General Medical Council")] =
+                Normalize("General Medical Council (GMC)"),
+
+            [Normalize("NMC")] =
+                Normalize("Nursing and Midwifery Council (NMC)"),
+
+            [Normalize("Nursing and Midwifery Council")] =
+                Normalize("Nursing and Midwifery Council (NMC)"),
+
+            [Normalize("HCPC")] =
+                Normalize("Health and Care Professions Council (HCPC)"),
+
+            [Normalize("Health and Care Professions Council")] =
+                Normalize("Health and Care Professions Council (HCPC)"),
+
+            [Normalize("GDC")] =
+                Normalize("General Dental Council (GDC)"),
+
+            [Normalize("General Dental Council")] =
+                Normalize("General Dental Council (GDC)"),
+
+            [Normalize("GPhC")] =
+                Normalize("General Pharmaceutical Council (GPhC)"),
+
+            [Normalize("General Pharmaceutical Council")] =
+                Normalize("General Pharmaceutical Council (GPhC)"),
+
+            [Normalize("GCC")] =
+                Normalize("General Chiropractic Council (GCC)"),
+
+            [Normalize("General Chiropractic Council")] =
+                Normalize("General Chiropractic Council (GCC)"),
+
+            [Normalize("GOsC")] =
+                Normalize("General Osteopathic Council (GOsC)"),
+
+            [Normalize("General Osteopathic Council")] =
+                Normalize("General Osteopathic Council (GOsC)"),
+
+            [Normalize("GOC")] =
+                Normalize("General Optical Council (GOC)"),
+
+            [Normalize("General Optical Council")] =
+                Normalize("General Optical Council (GOC)"),
+
+            [Normalize("Other")] =
+                Normalize("Other (not listed)")
+        };
+
+        var legacyToDestination = new Dictionary<int, int>();
+
+        await foreach (
+            var source in _professionalBodyExtractor
+                .ExtractAsync(cancellationToken)
+                .WithCancellation(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (source.ProfessionalBodyId <= 0)
+            {
+                continue;
+            }
+
+            var sourceKeys = new[]
+            {
+            Normalize(source.ProfessionalBodyCode),
+            Normalize(source.ProfessionalBody)
+        };
+
+            int? destinationId = null;
+
+            foreach (var key in sourceKeys.Where(
+                         key => !string.IsNullOrWhiteSpace(key)))
+            {
+                var destinationKey = aliases.TryGetValue(
+                    key,
+                    out var canonicalName)
+                    ? canonicalName
+                    : key;
+
+                if (destinationByName.TryGetValue(
+                        destinationKey,
+                        out var matchedId))
+                {
+                    destinationId = matchedId;
+                    break;
+                }
+            }
+
+            if (destinationId.HasValue)
+            {
+                legacyToDestination[source.ProfessionalBodyId] =
+                    destinationId.Value;
+            }
+        }
+
+        return legacyToDestination;
     }
 }

@@ -24,8 +24,8 @@ public class OrganisationTransformerTests
             LegacyOrganisationTypeId = 5,
             LegacyOrganisationType = "Legacy Hospital",
             OrganisationTypeId = 25,
-            OrganisationType = "NHS Trust",
-            IsMapped = true
+            OrganisationType = "NHS Trust"//,
+            //IsMapped = true
         };
 
         var transformer = new OrganisationTransformer();
@@ -79,8 +79,8 @@ public class OrganisationTransformerTests
             LegacyOrganisationTypeId = 5,
             LegacyOrganisationType = "Legacy Hospital",
             OrganisationTypeId = 25,
-            OrganisationType = "NHS Trust",
-            IsMapped = true
+            OrganisationType = "NHS Trust"//,
+            //IsMapped = true
         };
 
         var transformer = new OrganisationTransformer();
