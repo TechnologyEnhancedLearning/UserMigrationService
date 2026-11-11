@@ -17,7 +17,8 @@ public sealed class FinalLoadService : IFinalLoadService
         "migrations.MergeUserRoles",
         "migrations.MergeUserExternalSystems",
         "migrations.MergeUserPasswordValidationTokens",
-        "migrations.MergeUserLearningHistoryLogs"
+        "migrations.MergeUserLearningHistoryLogs",
+         "migrations.MergeUserAttributes"
     };
 
     private readonly string _connectionString;

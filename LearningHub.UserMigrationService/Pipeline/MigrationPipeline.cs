@@ -19,6 +19,7 @@ public class MigrationPipeline : IMigrationPipeline
     private readonly IUserMigrationSelectionService _userMigrationSelectionService;
     private readonly IOrganisationMigrationSelectionService _organisationMigrationSelectionService;
     private readonly ISupportingUserTablesMigrationService _supportingUserTablesMigrationService;
+    private readonly IUserAttributeMigrationService _userAttributeMigrationService;
     private readonly IMigrationMappingInitializer _migrationMappingInitializer;
 
     private readonly IProfessionalBodyExtractor _professionalBodyExtractor;
@@ -82,6 +83,7 @@ public class MigrationPipeline : IMigrationPipeline
         IUserMigrationSelectionService userMigrationSelectionService,
         IOrganisationMigrationSelectionService organisationMigrationSelectionService,
         ISupportingUserTablesMigrationService supportingUserTablesMigrationService,
+        IUserAttributeMigrationService userAttributeMigrationService,
 
         ILegacyRepository legacyRepository,
         ILearningHubRepository learningHubRepository,
@@ -120,6 +122,8 @@ public class MigrationPipeline : IMigrationPipeline
         _userMigrationSelectionService = userMigrationSelectionService;
         _organisationMigrationSelectionService = organisationMigrationSelectionService;
         _supportingUserTablesMigrationService = supportingUserTablesMigrationService;
+        _userAttributeMigrationService = userAttributeMigrationService;
+
         _organisationTypeMappingRepository = organisationTypeMappingRepository;
         _learningHubRepository = learningHubRepository;
         _legacyRepository = legacyRepository;
@@ -486,7 +490,7 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
 
-            // ==================================================
+           
 
             // ==================================================
             // Step 6.5 - Extract and stage supporting user tables
@@ -541,7 +545,60 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
+            
+            // ==================================================
+            // Step 6.7 - Extract and Stage User Attributes
+            // ==================================================
 
+            var userAttributeStepId =
+                await _migrationLogger.StartStepAsync(
+                    migrationRunId,
+                    "Extract and Stage User Attributes");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAttributeStepId,
+                    "Information",
+                    "UserAttributeMigrationService",
+                    "Starting UserAttribute extraction and staging.");
+
+                var userAttributeStatistics =
+                    await _userAttributeMigrationService.ExtractAndStageUserAttributesAsync(
+                        migrationRunId,
+                        cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    userAttributeStepId,
+                    userAttributeStatistics);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAttributeStepId,
+                    "Information",
+                    "UserAttributeMigrationService",
+                    $"UserAttribute staging completed. " +
+                    $"Read: {userAttributeStatistics.RecordsRead}; " +
+                    $"written: {userAttributeStatistics.RecordsWritten}.");
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    userAttributeStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    userAttributeStepId,
+                    "Error",
+                    "UserAttributeMigrationService",
+                    "UserAttribute extraction and staging failed.",
+                    ex);
+
+                throw;
+            }
+            // ==================================================
             // Step 7 - Transform and stage User Employments
             // ==================================================
 
@@ -2145,13 +2202,14 @@ TransformAndStageUserGroupReportersAsync(
     {
         var procedures = new[]
         {
-        "migrations.MergeUsers",
-        "migrations.MergeOrganisations",
-        "migrations.MergeUserOrganisations",
-        "migrations.MergeUserExternalSystems",
-        "migrations.MergeUserPasswordValidationTokens",
-        "migrations.MergeUserLearningHistoryLogs",
-        "migrations.MergeUserRoles"
+            "migrations.MergeUsers",
+            "migrations.MergeOrganisations",
+            "migrations.MergeUserOrganisations",
+            "migrations.MergeUserExternalSystems",
+            "migrations.MergeUserPasswordValidationTokens",
+            "migrations.MergeUserLearningHistoryLogs",
+            "migrations.MergeUserRoles",
+            "migrations.MergeUserAttributes"
     };
 
         foreach (var procedureName in procedures)

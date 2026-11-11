@@ -77,6 +77,9 @@ builder.Services.AddScoped<IUserMigrationSelectionService, UserMigrationSelectio
 builder.Services.AddScoped<IOrganisationMigrationSelectionService, OrganisationMigrationSelectionService>();
 builder.Services.AddScoped<ISupportingUserTablesMigrationService, SupportingUserTablesMigrationService>();
 builder.Services.AddScoped<ISupportingUserTablesMigrationService,SupportingUserTablesMigrationService>();
+// Attribute migration services
+builder.Services.AddScoped<AttributeMigrationService>();
+builder.Services.AddScoped<IUserAttributeMigrationService>(sp => sp.GetRequiredService<AttributeMigrationService>());
 builder.Services.AddScoped<IMigrationMappingInitializer, MigrationMappingInitializer>();
 
 builder.Services.AddScoped<IUserExtractor, UserExtractor>();
