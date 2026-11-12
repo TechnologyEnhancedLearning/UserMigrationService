@@ -151,37 +151,57 @@ namespace LearningHub.UserMigrationService.Repositories
 
             return results;
         }
-        public async Task InsertUsersToMigrateAsync(IEnumerable<int> userIds,CancellationToken cancellationToken)
+
+
+        public async Task InsertUsersToMigrateAsync(
+            IEnumerable<int> userIds,
+            CancellationToken cancellationToken)
         {
-            const string sql = """
-                            INSERT INTO migrations.UserIdsToMigrate (UserId)
-                            SELECT @UserId
-                            WHERE NOT EXISTS
-                            (
-                                SELECT 1
-                                FROM migrations.UserIdsToMigrate
-                                WHERE UserId = @UserId
-                            );
-                            """;
+            var ids = userIds
+                .Distinct()
+                .ToList();
 
             using var connection = new SqlConnection(_connectionString);
+
             await connection.OpenAsync(cancellationToken);
 
-            using var transaction =
+            using var transaction = (SqlTransaction)
                 await connection.BeginTransactionAsync(cancellationToken);
 
             try
             {
-                foreach (var userId in userIds.Distinct())
+                using (var truncateCommand = new SqlCommand(
+                    "TRUNCATE TABLE migrations.UserIdsToMigrate",
+                    connection,
+                    transaction))
                 {
-                    using var command = new SqlCommand(sql, connection);
+                    await truncateCommand.ExecuteNonQueryAsync(cancellationToken);
+                }
 
-                    command.Transaction =
-                        (SqlTransaction)transaction;
+                if (ids.Count > 0)
+                {
+                    var dataTable = new DataTable();
+                    dataTable.Columns.Add("UserId", typeof(int));
 
-                    command.Parameters.AddWithValue("@UserId", userId);
+                    foreach (var userId in ids)
+                    {
+                        dataTable.Rows.Add(userId);
+                    }
 
-                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    using var bulkCopy = new SqlBulkCopy(
+                        connection,
+                        SqlBulkCopyOptions.Default,
+                        transaction)
+                    {
+                        DestinationTableName = "migrations.UserIdsToMigrate",
+                        BatchSize = 5000
+                    };
+
+                    bulkCopy.ColumnMappings.Add("UserId", "UserId");
+
+                    await bulkCopy.WriteToServerAsync(
+                        dataTable,
+                        cancellationToken);
                 }
 
                 await transaction.CommitAsync(cancellationToken);
@@ -192,6 +212,8 @@ namespace LearningHub.UserMigrationService.Repositories
                 throw;
             }
         }
+
+
         public async Task<List<int>> GetUserIdsToMigrateAsync(CancellationToken cancellationToken)
         {
             return await _context.UserIdsToMigrate
@@ -343,6 +365,25 @@ namespace LearningHub.UserMigrationService.Repositories
             }
 
             return ids;
+        }
+        public async Task<int> RemoveObsoleteUserUserGroupsAsync(
+    CancellationToken cancellationToken)
+        {
+            const string sql = """
+        DELETE uug
+        FROM hub.UserUserGroup AS uug
+        WHERE uug.UserGroupId < 10000
+          AND NOT EXISTS
+          (
+              SELECT 1
+              FROM migrations.UserIdsToMigrate AS u
+              WHERE u.UserId = uug.UserId
+          );
+        """;
+
+            return await _context.Database.ExecuteSqlRawAsync(
+                sql,
+                cancellationToken);
         }
 
     }

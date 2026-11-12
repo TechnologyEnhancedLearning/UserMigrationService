@@ -387,7 +387,7 @@ public class MigrationPipeline : IMigrationPipeline
                 throw;
             }
             // ==================================================
-            // Step 4.5 - Initialise migration mappings
+            // Step 5 - Initialise migration mappings
             // ==================================================
 
             var mappingStepId =
@@ -434,7 +434,7 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-           
+
 
             // ==================================================
             // Step 6 - Transform and stage Users
@@ -1030,12 +1030,65 @@ public class MigrationPipeline : IMigrationPipeline
 
                 throw;
             }
-            
+            // ==================================================
+            // 17. Remove obsolete UserUserGroup records
+            // ==================================================
+
+            var cleanupStepId = await _migrationLogger.StartStepAsync(
+                migrationRunId,
+                "Remove Obsolete UserUserGroup Records");
+
+            try
+            {
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    cleanupStepId,
+                    "Information",
+                    "FinalLoadService",
+                    "Removing obsolete UserUserGroup records for users not selected for migration.");
+
+                var deletedRecords =
+                    await _learningHubRepository
+                        .RemoveObsoleteUserUserGroupsAsync(
+                            cancellationToken);
+
+                await _migrationLogger.CompleteStepAsync(
+                    cleanupStepId,
+                    new MigrationStatistics
+                    {
+                        RecordsRemoved = deletedRecords
+                    });
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    cleanupStepId,
+                    "Information",
+                    "FinalLoadService",
+                    $"Removed {deletedRecords} obsolete UserUserGroup records.");
+
+            }
+            catch (Exception ex)
+            {
+                await _migrationLogger.FailStepAsync(
+                    cleanupStepId,
+                    ex);
+
+                await _migrationLogger.LogAsync(
+                    migrationRunId,
+                    cleanupStepId,
+                    "Error",
+                    "FinalLoadService",
+                    "Failed to remove obsolete UserUserGroup records.",
+                    ex);
+
+                throw;
+            }
+
             // ==================================================
             // Step 18 - Load staged data into Learning Hub tables
             // ==================================================
 
-                await ExecuteFinalLoadAsync(
+            await ExecuteFinalLoadAsync(
                     migrationRunId,
                     cancellationToken);
 
@@ -2209,7 +2262,9 @@ TransformAndStageUserGroupReportersAsync(
             "migrations.MergeUserPasswordValidationTokens",
             "migrations.MergeUserLearningHistoryLogs",
             "migrations.MergeUserRoles",
-            "migrations.MergeUserAttributes"
+            "migrations.MergeUserAttributes",
+            "migrations.MergeGmcLrmp",
+            "migrations.MergeGdcRegister"
     };
 
         foreach (var procedureName in procedures)

@@ -34,7 +34,7 @@ public class MigrationMappingInitializer
 
         //await InitialiseOrganisationTypeMappingsAsync(cancellationToken);
         //await ResolveOrganisationTypeMappingsAsync(cancellationToken);
-        await InitialiseUserMappingsAsync(cancellationToken);
+        //await InitialiseUserMappingsAsync(cancellationToken);
 
         await InitialiseOrganisationMappingsAsync(cancellationToken);
         await InitialiseStaffGroupJobRoleTypeMappingsAsync(cancellationToken);

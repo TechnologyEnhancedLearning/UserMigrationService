@@ -27,18 +27,24 @@ public class OrganisationMigrationSelectionService
         }
     }
 
-    public async Task<int>
-    PopulateOrganisationLocationsToMigrateAsync(
-        IEnumerable<int> userIds,
-        CancellationToken cancellationToken)
-    {
-        var locationIds =
-            new HashSet<int>();
 
-        foreach (var userBatch in userIds.Distinct().Chunk(_batchSize))
+    public async Task<int>
+        PopulateOrganisationLocationsToMigrateAsync(
+            IEnumerable<int> userIds,
+            CancellationToken cancellationToken)
+    {
+        var locationIds = new HashSet<int>();
+
+        var employmentLocationUserCounts =
+            new Dictionary<int, int>();
+
+        foreach (var userBatch in userIds
+            .Distinct()
+            .Chunk(_batchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Admin locations
             var adminLocationIds =
                 await _legacyRepository
                     .GetElfhAdminLocationIdsToMigrateAsync(
@@ -50,15 +56,34 @@ public class OrganisationMigrationSelectionService
                 locationIds.Add(locationId);
             }
 
-            var employmentLocationIds =
+            // Employment locations
+            var employmentLocationCounts =
                 await _legacyRepository
-                    .GetElfhEmploymentLocationIdsToMigrateAsync(
+                    .GetElfhEmploymentLocationUserCountsAsync(
                         userBatch,
                         cancellationToken);
 
-            foreach (var locationId in employmentLocationIds)
+            foreach (var item in employmentLocationCounts)
             {
-                locationIds.Add(locationId);
+                if (employmentLocationUserCounts.TryGetValue(
+                    item.Key, out var existingCount))
+                {
+                    employmentLocationUserCounts[item.Key] =
+                        existingCount + item.Value;
+                }
+                else
+                {
+                    employmentLocationUserCounts[item.Key] =
+                        item.Value;
+                }
+            }
+        }
+
+        foreach (var item in employmentLocationUserCounts)
+        {
+            if (item.Value >= 300)
+            {
+                locationIds.Add(item.Key);
             }
         }
 

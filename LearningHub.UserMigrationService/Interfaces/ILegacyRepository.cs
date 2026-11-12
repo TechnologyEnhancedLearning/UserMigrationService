@@ -13,6 +13,7 @@ namespace LearningHub.UserMigrationService.Interfaces
         Task<List<int>> GetElfhAdminLocationIdsToMigrateAsync(IEnumerable<int> userIds,CancellationToken cancellationToken);
 
         Task<List<int>> GetElfhEmploymentLocationIdsToMigrateAsync(IEnumerable<int> userIds, CancellationToken cancellationToken);
+        Task<Dictionary<int, int>> GetElfhEmploymentLocationUserCountsAsync(IEnumerable<int> userIds, CancellationToken cancellationToken);
         Task<Dictionary<int, int?>> GetInferredOrganisationRegionsAsync( IEnumerable<int> locationIds, CancellationToken cancellationToken);
         Task<Dictionary<int, int?>> GetProfessionalBodyIdsAsync(IEnumerable<int> userIds,CancellationToken cancellationToken);
     }

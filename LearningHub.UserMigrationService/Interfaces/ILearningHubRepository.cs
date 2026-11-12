@@ -20,5 +20,6 @@ namespace LearningHub.UserMigrationService.Interfaces
        Task<List<RoleReference>> GetRolesAsync(CancellationToken cancellationToken);
         Task<IReadOnlyList<ProfessionalBody>> GetProfessionalBodiesAsync( CancellationToken cancellationToken = default);
         Task<HashSet<int>> GetOrganisationTypeIdsAsync( CancellationToken cancellationToken);
+        Task<int> RemoveObsoleteUserUserGroupsAsync(CancellationToken cancellationToken);
     } 
 }

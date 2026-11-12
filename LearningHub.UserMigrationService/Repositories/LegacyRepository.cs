@@ -198,6 +198,72 @@ namespace LearningHub.UserMigrationService.Repositories
 
             return locationIds;
         }
+
+        public async Task<Dictionary<int, int>>
+            GetElfhEmploymentLocationUserCountsAsync(
+                IEnumerable<int> userIds,
+                CancellationToken cancellationToken)
+        {
+            var ids = userIds
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+            {
+                return new Dictionary<int, int>();
+            }
+
+            var parameters = ids
+                .Select((id, index) => new SqlParameter(
+                    $"@UserId{index}", SqlDbType.Int)
+                {
+                    Value = id
+                })
+                .ToArray();
+
+            var parameterNames = string.Join(
+                ", ",
+                parameters.Select(p => p.ParameterName));
+
+            var sql = $"""
+        SELECT
+            ue.locationId,
+            COUNT(DISTINCT ue.userId) AS UserCount
+        FROM dbo.userEmploymentTBL AS ue
+        WHERE ue.deleted = 0
+          AND ue.archived = 0
+          AND ue.locationId IS NOT NULL
+          AND ue.userId IN ({parameterNames})
+        GROUP BY
+            ue.locationId;
+        """;
+
+            var result = new Dictionary<int, int>();
+
+            using var connection = new SqlConnection(_connectionString);
+
+            await connection.OpenAsync(cancellationToken);
+
+            await using var command = new SqlCommand(sql, connection)
+            {
+                CommandTimeout = _sqlCommandTimeoutSeconds
+            };
+
+            command.Parameters.AddRange(parameters);
+
+            using var reader =
+                await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.Add(
+                    reader.GetInt32(0),
+                    reader.GetInt32(1));
+            }
+
+            return result;
+        }
+
         public async Task<Dictionary<int, int?>> GetInferredOrganisationRegionsAsync(IEnumerable<int> locationIds,CancellationToken cancellationToken)
                 {
                     ArgumentNullException.ThrowIfNull(locationIds);
